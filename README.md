@@ -549,6 +549,9 @@ pip install pyinstaller
 # Create single-file executable
 pyinstaller --onefile --windowed --name "SME" main.py
 
+# example command
+pyinstaller --onefile --windowed --name "SME" --icon=app_icon.ico main.py
+
 # Find your .exe in the 'dist' folder
 ```
 
