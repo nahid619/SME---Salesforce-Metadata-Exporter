@@ -1,0 +1,139 @@
+"""
+SME - Login Screen UI
+"""
+import customtkinter as ctk
+from tkinter import messagebox
+from typing import Callable, Optional
+from config.constants import COLOR_SUCCESS
+
+
+class LoginScreen(ctk.CTkFrame):
+    """Login screen for Salesforce authentication"""
+    
+    def __init__(self, parent, on_login_success: Callable):
+        """
+        Initialize login screen
+        
+        Args:
+            parent: Parent widget
+            on_login_success: Callback function when login succeeds
+        """
+        super().__init__(parent)
+        self.on_login_success = on_login_success
+        self.columnconfigure(1, weight=1)
+        
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Setup login UI components"""
+        # Title
+        title_label = ctk.CTkLabel(
+            self, 
+            text="Salesforce Login", 
+            font=ctk.CTkFont(size=32, weight="bold")
+        )
+        title_label.grid(row=0, column=0, columnspan=2, pady=(60, 50))
+        
+        # Username
+        ctk.CTkLabel(
+            self, 
+            text="Username:", 
+            anchor="w", 
+            font=ctk.CTkFont(size=14)
+        ).grid(row=1, column=0, padx=15, pady=15, sticky="w")
+        
+        self.username_entry = ctk.CTkEntry(self, width=400, height=40, font=ctk.CTkFont(size=13))
+        self.username_entry.grid(row=1, column=1, padx=15, pady=15, sticky="ew")
+        
+        # Password
+        ctk.CTkLabel(
+            self, 
+            text="Password:", 
+            anchor="w", 
+            font=ctk.CTkFont(size=14)
+        ).grid(row=2, column=0, padx=15, pady=15, sticky="w")
+        
+        self.password_entry = ctk.CTkEntry(self, width=400, height=40, show="*", font=ctk.CTkFont(size=13))
+        self.password_entry.grid(row=2, column=1, padx=15, pady=15, sticky="ew")
+        
+        # Security Token
+        ctk.CTkLabel(
+            self, 
+            text="Security Token:", 
+            anchor="w", 
+            font=ctk.CTkFont(size=14)
+        ).grid(row=3, column=0, padx=15, pady=15, sticky="w")
+        
+        self.token_entry = ctk.CTkEntry(self, width=400, height=40, show="*", font=ctk.CTkFont(size=13))
+        self.token_entry.grid(row=3, column=1, padx=15, pady=15, sticky="ew")
+        
+        # Org Type
+        ctk.CTkLabel(
+            self, 
+            text="Org Type:", 
+            anchor="w", 
+            font=ctk.CTkFont(size=14)
+        ).grid(row=4, column=0, padx=15, pady=15, sticky="w")
+        
+        org_frame = ctk.CTkFrame(self, fg_color="transparent")
+        org_frame.grid(row=4, column=1, padx=15, pady=15, sticky="w")
+        
+        self.org_type_var = ctk.StringVar(value="Production")
+        
+        ctk.CTkRadioButton(
+            org_frame, 
+            text="Production", 
+            variable=self.org_type_var, 
+            value="Production",
+            font=ctk.CTkFont(size=13)
+        ).pack(side="left", padx=(0, 30))
+        
+        ctk.CTkRadioButton(
+            org_frame, 
+            text="Sandbox/Test", 
+            variable=self.org_type_var, 
+            value="Sandbox",
+            font=ctk.CTkFont(size=13)
+        ).pack(side="left")
+        
+        # Login Button - Changed color for light theme
+        self.login_button = ctk.CTkButton(
+            self, 
+            text="Connect to Salesforce", 
+            command=self._handle_login,
+            height=50, 
+            font=ctk.CTkFont(size=16, weight="bold"),
+            fg_color="#28a745",
+            hover_color="#218838"
+        )
+        self.login_button.grid(row=5, column=0, columnspan=2, pady=60, sticky="ew", padx=15)
+        
+        # Bind Enter key to login
+        self.username_entry.bind("<Return>", lambda e: self._handle_login())
+        self.password_entry.bind("<Return>", lambda e: self._handle_login())
+        self.token_entry.bind("<Return>", lambda e: self._handle_login())
+    
+    def _handle_login(self):
+        """Handle login button click"""
+        username = self.username_entry.get().strip()
+        password = self.password_entry.get().strip()
+        token = self.token_entry.get().strip()
+        domain = 'test' if self.org_type_var.get() == 'Sandbox' else 'login'
+        
+        # Validation
+        if not all([username, password, token]):
+            messagebox.showerror(
+                "Input Error", 
+                "All fields (Username, Password, Security Token) are required."
+            )
+            return
+        
+        # Disable button during connection
+        self.login_button.configure(state="disabled", text="Connecting...")
+        
+        # Call success callback with credentials
+        self.on_login_success(username, password, token, domain)
+    
+    def enable_login_button(self):
+        """Re-enable login button after failed attempt"""
+        self.login_button.configure(state="normal", text="Connect to Salesforce")

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-*
+
+# Exports (User Generated)
+*.xlsx
+*.csv
+
+# Logs
+*.log
+logs/
+
+# Build (PyInstaller)
+build/
+dist/
+*.spec
+*.exe

@@ -1,0 +1,17 @@
+# Salesforce Metadata Exporter (SME) - Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core dependency for customtkinter
+packaging>=21.0
+
+# Salesforce API
+simple-salesforce==1.12.6
+
+# Excel file handling
+openpyxl==3.1.2
+
+# HTTP requests
+requests==2.31.0
+
+# Modern GUI framework
+customtkinter==5.2.1

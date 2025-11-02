@@ -1,0 +1,307 @@
+================================================================================
+SME (Salesforce Metadata Exporter) - Installation Checklist
+================================================================================
+
+Follow this checklist to ensure proper installation.
+
+================================================================================
+STEP 1: CREATE DIRECTORY STRUCTURE
+================================================================================
+
+Create the following folders:
+
+[ ] salesforce-metadata-exporter/          (Main folder)
+[ ] salesforce-metadata-exporter/config/
+[ ] salesforce-metadata-exporter/core/
+[ ] salesforce-metadata-exporter/exporters/
+[ ] salesforce-metadata-exporter/ui/
+[ ] salesforce-metadata-exporter/utils/
+
+Quick Command (Windows PowerShell):
+-----------------------------------
+New-Item -ItemType Directory -Path "salesforce-metadata-exporter"
+Set-Location "salesforce-metadata-exporter"
+New-Item -ItemType Directory -Path "config", "core", "exporters", "ui", "utils"
+
+Quick Command (Mac/Linux):
+--------------------------
+mkdir -p salesforce-metadata-exporter/{config,core,exporters,ui,utils}
+cd salesforce-metadata-exporter
+
+================================================================================
+STEP 2: CREATE __init__.py FILES
+================================================================================
+
+Create empty __init__.py files in these locations:
+
+[ ] config/__init__.py
+[ ] core/__init__.py
+[ ] exporters/__init__.py
+[ ] ui/__init__.py
+[ ] utils/__init__.py
+
+Quick Command (Windows):
+-----------------------
+type nul > config\__init__.py
+type nul > core\__init__.py
+type nul > exporters\__init__.py
+type nul > ui\__init__.py
+type nul > utils\__init__.py
+
+Quick Command (Mac/Linux):
+--------------------------
+touch config/__init__.py core/__init__.py exporters/__init__.py ui/__init__.py utils/__init__.py
+
+================================================================================
+STEP 3: ADD PYTHON FILES
+================================================================================
+
+Copy the following files from artifacts to their locations:
+
+ROOT DIRECTORY FILES:
+--------------------
+[ ] main.py                    (Entry point - RUN THIS!)
+[ ] requirements.txt           (Dependencies list)
+
+OPTIONAL DOCUMENTATION:
+----------------------
+[ ] README.md                  (Full documentation)
+[ ] SETUP_GUIDE.md            (Setup instructions)
+[ ] QUICK_START.md            (Quick start guide)
+[ ] FILE_REFERENCE.md         (Code reference)
+[ ] PROJECT_SUMMARY.md        (Project overview)
+
+CONFIG PACKAGE:
+--------------
+[ ] config/constants.py        (Configuration constants)
+
+CORE PACKAGE:
+------------
+[ ] core/salesforce_client.py  (Salesforce connection)
+
+EXPORTERS PACKAGE:
+-----------------
+[ ] exporters/picklist_exporter.py  (Picklist export logic)
+
+UI PACKAGE:
+----------
+[ ] ui/login_screen.py         (Login interface)
+[ ] ui/main_screen.py          (Main application screen)
+
+UTILS PACKAGE:
+-------------
+[ ] utils/file_handler.py      (File operations)
+[ ] utils/helpers.py           (Utility functions)
+
+================================================================================
+STEP 4: VERIFY FILE STRUCTURE
+================================================================================
+
+Your structure should look like this:
+
+salesforce-metadata-exporter/
+│
+├── main.py                          ← ENTRY POINT
+├── requirements.txt
+├── README.md (optional)
+├── SETUP_GUIDE.md (optional)
+├── QUICK_START.md (optional)
+│
+├── config/
+│   ├── __init__.py
+│   └── constants.py
+│
+├── core/
+│   ├── __init__.py
+│   └── salesforce_client.py
+│
+├── exporters/
+│   ├── __init__.py
+│   └── picklist_exporter.py
+│
+├── ui/
+│   ├── __init__.py
+│   ├── login_screen.py
+│   └── main_screen.py
+│
+└── utils/
+    ├── __init__.py
+    ├── file_handler.py
+    └── helpers.py
+
+[ ] Structure matches above
+
+================================================================================
+STEP 5: INSTALL DEPENDENCIES
+================================================================================
+
+Run ONE of these commands:
+
+Option 1 (Recommended):
+----------------------
+[ ] pip install -r requirements.txt
+
+Option 2 (Manual):
+-----------------
+[ ] pip install simple-salesforce==1.12.6
+[ ] pip install openpyxl==3.1.2
+[ ] pip install requests==2.31.0
+[ ] pip install customtkinter==5.2.1
+
+Verify Installation:
+-------------------
+[ ] python -c "import simple_salesforce, openpyxl, requests, customtkinter; print('Success!')"
+
+================================================================================
+STEP 6: TEST APPLICATION LAUNCH
+================================================================================
+
+[ ] Open terminal/command prompt
+[ ] Navigate to project folder: cd salesforce-metadata-exporter
+[ ] Run: python main.py
+[ ] Window opens centered on screen (1280x720)
+[ ] Login screen displays
+[ ] No error messages appear
+
+If errors appear:
+-----------------
+- Check all __init__.py files exist
+- Verify all .py files are in correct folders
+- Confirm dependencies are installed
+- Check Python version (3.8+)
+
+================================================================================
+STEP 7: GET SALESFORCE CREDENTIALS
+================================================================================
+
+[ ] Login to Salesforce
+[ ] Click profile icon → Settings
+[ ] Navigate to: My Personal Information → Reset My Security Token
+[ ] Click "Reset Security Token"
+[ ] Check email for new token
+[ ] Save token securely
+
+================================================================================
+STEP 8: TEST CONNECTION
+================================================================================
+
+For Production/Developer Org:
+-----------------------------
+Username: [ ] your.email@company.com
+Password: [ ] Your password
+Token:    [ ] Token from email
+Org Type: [ ] Production (selected)
+
+For Sandbox:
+-----------
+Username: [ ] your.email@company.com.sandboxname
+Password: [ ] Your password
+Token:    [ ] Token from email
+Org Type: [ ] Sandbox/Test (selected)
+
+[ ] Click "Connect to Salesforce"
+[ ] Success message appears
+[ ] Main screen loads
+[ ] Objects appear in "Available Objects" list
+
+================================================================================
+STEP 9: TEST EXPORT FUNCTIONALITY
+================================================================================
+
+[ ] Type "Account" in search box
+[ ] Click Account in available objects
+[ ] Click "Add >>" button
+[ ] Account appears in "Selected for Export"
+[ ] Select "Excel (.xlsx)" format
+[ ] Click "📋 Export Picklist Data"
+[ ] Choose save location
+[ ] Export starts (progress bar moves)
+[ ] Terminal shows processing logs
+[ ] Export completes successfully
+[ ] Success message appears
+[ ] Output file exists at save location
+[ ] Open file - data looks correct
+
+================================================================================
+STEP 10: TEST UI FEATURES
+================================================================================
+
+[ ] Theme toggle works (🌙/☀️ button)
+[ ] Can switch between light and dark themes
+[ ] F11 toggles fullscreen mode
+[ ] Escape exits fullscreen
+[ ] Window is resizable
+[ ] Filter buttons work (All/Standard/Custom)
+[ ] Search box filters objects correctly
+[ ] Can add multiple objects
+[ ] Can remove objects from selected list
+[ ] "Select All" button works
+[ ] "Deselect All" button works
+[ ] Progress bar updates during export
+[ ] Terminal scrolls automatically
+[ ] Can logout and return to login screen
+
+================================================================================
+FINAL VERIFICATION
+================================================================================
+
+CRITICAL CHECKS:
+[ ] Application launches without errors
+[ ] Can connect to Salesforce
+[ ] Objects load successfully
+[ ] Export completes successfully
+[ ] Output file is readable and correct
+[ ] No crashes or freezes
+
+NICE-TO-HAVE CHECKS:
+[ ] Window centered on launch
+[ ] Fonts are readable
+[ ] Colors look professional
+[ ] UI is responsive
+[ ] Terminal provides useful information
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Issue: "No module named 'config'"
+Solution: Ensure config/__init__.py exists
+
+Issue: "No module named 'customtkinter'"
+Solution: pip install customtkinter
+
+Issue: Can't connect to Salesforce
+Solution: Verify credentials, token, org type
+
+Issue: Objects won't load
+Solution: Wait 30-60 seconds, check terminal for errors
+
+Issue: Export fails
+Solution: Check terminal logs for specific error
+
+Issue: Window doesn't center
+Solution: Normal on some systems, manually move window
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+✓ All dependencies installed
+✓ All files in correct locations
+✓ Application launches successfully
+✓ Can connect to Salesforce
+✓ Objects load in lists
+✓ Can export picklist data
+✓ Export creates valid file
+✓ UI features work correctly
+
+================================================================================
+
+🎉 INSTALLATION COMPLETE!
+
+You're now ready to use SME (Salesforce Metadata Exporter)
+
+For usage instructions, see README.md
+For help, see SETUP_GUIDE.md or QUICK_START.md
+
+================================================================================
