@@ -16,6 +16,7 @@ from config.constants import (
 from utils.helpers import format_runtime, get_timestamp, format_file_timestamp, print_statistics
 from exporters.picklist_exporter import PicklistExporter
 from exporters.dependency_analyzer import DependencyAnalyzer
+from exporters.metadata_exporter import MetadataExporter
 
 
 class MainScreen(ctk.CTkFrame):
@@ -41,6 +42,7 @@ class MainScreen(ctk.CTkFrame):
         self.export_in_progress = False
         self.picklist_exporter = None
         self.dependency_analyzer = None
+        self.metadata_exporter = None
         
         # Configure grid
         self.grid_rowconfigure(1, weight=1)
@@ -354,13 +356,15 @@ class MainScreen(ctk.CTkFrame):
         )
         self.dependency_btn.grid(row=0, column=1, padx=4, sticky="ew")
         
+        # UPDATED: Metadata Exporter button now fully functional
         self.metadata_btn = ctk.CTkButton(
             buttons_frame,
             text="📦 Metadata Exporter",
-            command=self._coming_soon,
+            command=self._export_metadata_action,
             height=42,
-            fg_color=BUTTON_PLACEHOLDER,
-            font=ctk.CTkFont(size=13)
+            fg_color=BUTTON_EXPORT,
+            hover_color=BUTTON_EXPORT_HOVER,
+            font=ctk.CTkFont(size=13, weight="bold")
         )
         self.metadata_btn.grid(row=0, column=2, padx=4, sticky="ew")
         
@@ -994,6 +998,258 @@ class MainScreen(ctk.CTkFrame):
         self.dependency_btn.configure(
             text="🔗 Dependency Analysis",
             command=self._export_dependency_action,
+            fg_color=BUTTON_EXPORT
+        )
+    
+    # ==================== METADATA EXPORT HANDLERS ====================
+    
+    def _export_metadata_action(self):
+        """Handle metadata export action"""
+        if not self.sf_client:
+            messagebox.showerror("Error", "Not logged in. Please log in first.")
+            return
+        
+        selected_objects_list = sorted(list(self.selected_objects))
+        
+        if not selected_objects_list:
+            messagebox.showwarning(
+                "Warning",
+                "Please add objects to the 'Selected for Export' list."
+            )
+            return
+        
+        # Ask for options
+        options_dialog = ctk.CTkToplevel(self)
+        options_dialog.title("Metadata Export Options")
+        options_dialog.geometry("400x200")
+        options_dialog.transient(self)
+        options_dialog.grab_set()
+        
+        # Center dialog
+        options_dialog.update_idletasks()
+        x = (options_dialog.winfo_screenwidth() // 2) - (400 // 2)
+        y = (options_dialog.winfo_screenheight() // 2) - (200 // 2)
+        options_dialog.geometry(f"+{x}+{y}")
+        
+        # Options frame
+        opts_frame = ctk.CTkFrame(options_dialog)
+        opts_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        ctk.CTkLabel(
+            opts_frame,
+            text="Select Export Options:",
+            font=ctk.CTkFont(size=14, weight="bold")
+        ).pack(pady=(0, 15))
+        
+        # Custom fields only checkbox
+        custom_only_var = ctk.BooleanVar(value=False)
+        custom_only_cb = ctk.CTkCheckBox(
+            opts_frame,
+            text="Export custom fields only",
+            variable=custom_only_var,
+            font=ctk.CTkFont(size=12)
+        )
+        custom_only_cb.pack(pady=5, anchor="w")
+        
+        # Include usage checkbox
+        include_usage_var = ctk.BooleanVar(value=False)
+        include_usage_cb = ctk.CTkCheckBox(
+            opts_frame,
+            text="Include field usage analysis (slower)",
+            variable=include_usage_var,
+            font=ctk.CTkFont(size=12)
+        )
+        include_usage_cb.pack(pady=5, anchor="w")
+        
+        # Buttons
+        btn_frame = ctk.CTkFrame(opts_frame, fg_color="transparent")
+        btn_frame.pack(pady=(15, 0))
+        
+        def on_continue():
+            options_dialog.destroy()
+            self._start_metadata_export(
+                selected_objects_list,
+                custom_only_var.get(),
+                include_usage_var.get()
+            )
+        
+        def on_cancel():
+            options_dialog.destroy()
+        
+        ctk.CTkButton(
+            btn_frame,
+            text="Continue",
+            command=on_continue,
+            fg_color=BUTTON_EXPORT,
+            width=120
+        ).pack(side="left", padx=5)
+        
+        ctk.CTkButton(
+            btn_frame,
+            text="Cancel",
+            command=on_cancel,
+            fg_color="gray",
+            width=120
+        ).pack(side="left", padx=5)
+    
+    def _start_metadata_export(self, selected_objects_list: List[str], 
+                               custom_only: bool, include_usage: bool):
+        """Start the metadata export process"""
+        export_format = self.export_format_var.get()
+        extension = ".xlsx" if export_format == "excel" else ".csv"
+        default_filename = f'Metadata_Export_{format_file_timestamp()}{extension}'
+        
+        filetypes = [("Excel files", "*.xlsx")] if export_format == "excel" else [("CSV files", "*.csv")]
+        
+        output_file_path = filedialog.asksaveasfilename(
+            defaultextension=extension,
+            initialfile=default_filename,
+            filetypes=filetypes
+        )
+        
+        if not output_file_path:
+            return
+        
+        self.export_in_progress = True
+        self._disable_ui()
+        self.metadata_btn.configure(
+            text="⏸️ Cancel Export",
+            command=self._cancel_metadata_action,
+            fg_color=BUTTON_CANCEL
+        )
+        self._update_status_bar("Metadata export in progress...", COLOR_WARNING)
+        self.progress_bar.set(0)
+        self.progress_label.configure(text="0%")
+        
+        # Create exporter
+        self.metadata_exporter = MetadataExporter(self.sf_client, status_callback=self._update_status)
+        
+        # Start export in thread
+        export_thread = threading.Thread(
+            target=self._run_metadata_export,
+            args=(selected_objects_list, output_file_path, export_format, custom_only, include_usage),
+            daemon=True
+        )
+        export_thread.start()
+    
+    def _cancel_metadata_action(self):
+        """Cancel ongoing metadata export"""
+        confirm = messagebox.askyesno(
+            "Cancel Export",
+            "Are you sure you want to cancel the metadata export?\n\nPartial data will be saved."
+        )
+        if confirm and self.metadata_exporter:
+            self.metadata_exporter.cancel_export()
+            self.metadata_btn.configure(text="Cancelling...", state="disabled")
+            self._update_status_bar("Cancelling export...", COLOR_WARNING)
+    
+    def _run_metadata_export(self, selected_objects_list: List[str], output_file_path: str, 
+                            export_format: str, custom_only: bool, include_usage: bool):
+        """Background thread for metadata export operation"""
+        start_time = time.time()
+        output_path = None
+        stats = None
+        
+        try:
+            output_path, stats = self.metadata_exporter.export_metadata(
+                selected_objects_list,
+                output_file_path,
+                export_format=export_format,
+                include_usage=include_usage,
+                custom_only=custom_only,
+                progress_callback=self._update_progress
+            )
+            
+            end_time = time.time()
+            runtime_seconds = end_time - start_time
+            runtime_formatted = format_runtime(runtime_seconds)
+            
+            if stats.get('cancelled'):
+                self.after(0, self._metadata_complete_cancelled, output_path, stats, runtime_formatted)
+            else:
+                self.after(0, self._metadata_complete_success, output_path, stats, runtime_formatted)
+        
+        except Exception as e:
+            self.after(0, self._metadata_complete_error, str(e))
+    
+    def _metadata_complete_success(self, output_path: str, stats: Dict, runtime_formatted: str):
+        """Called when metadata export completes successfully"""
+        self._update_status(f"\n{'='*63}")
+        self._update_status(f"✅ METADATA EXPORT COMPLETED!")
+        self._update_status(f"{'='*63}")
+        self._update_status(f"Runtime: {runtime_formatted}")
+        self._update_status(f"API Calls: {stats.get('api_calls_made', 0)}")
+        self._update_status(f"Objects Processed: {stats['successful_objects']}/{stats['total_objects']}")
+        self._update_status(f"Total Fields: {stats['total_fields']}")
+        self._update_status(f"  - Standard Fields: {stats['standard_fields']}")
+        self._update_status(f"  - Custom Fields: {stats['custom_fields']}")
+        self._update_status(f"  - Formula Fields: {stats['formula_fields']}")
+        self._update_status(f"  - Lookup Fields: {stats['lookup_fields']}")
+        self._update_status(f"  - Picklist Fields: {stats['picklist_fields']}")
+        self._update_status(f"Output: {output_path}")
+        self._update_status(f"{'='*63}\n")
+        
+        self._update_status_bar("Metadata export completed!", COLOR_SUCCESS)
+        self.progress_bar.set(1.0)
+        
+        messagebox.showinfo(
+            "Export Complete",
+            f"Metadata successfully exported!\n\n"
+            f"File: {output_path}\n"
+            f"Runtime: {runtime_formatted}\n"
+            f"Fields Exported: {stats['total_fields']}"
+        )
+        
+        self.export_in_progress = False
+        self.metadata_exporter = None
+        self._enable_ui()
+        self.metadata_btn.configure(
+            text="📦 Metadata Exporter",
+            command=self._export_metadata_action,
+            fg_color=BUTTON_EXPORT
+        )
+    
+    def _metadata_complete_cancelled(self, output_path: str, stats: Dict, runtime_formatted: str):
+        """Called when metadata export is cancelled"""
+        self._update_status(f"\n{'='*63}")
+        self._update_status(f"🛑 METADATA EXPORT CANCELLED")
+        self._update_status(f"{'='*63}")
+        self._update_status(f"Runtime: {runtime_formatted}")
+        self._update_status(f"Processed: {stats['successful_objects']}/{stats['total_objects']} objects")
+        self._update_status(f"Partial data saved to: {output_path}")
+        self._update_status(f"{'='*63}\n")
+        
+        self._update_status_bar("Export cancelled", COLOR_WARNING)
+        
+        messagebox.showwarning(
+            "Export Cancelled",
+            f"Export was cancelled.\n\n"
+            f"Partial data saved to:\n{output_path}\n\n"
+            f"Processed: {stats['successful_objects']}/{stats['total_objects']} objects"
+        )
+        
+        self.export_in_progress = False
+        self.metadata_exporter = None
+        self._enable_ui()
+        self.metadata_btn.configure(
+            text="📦 Metadata Exporter",
+            command=self._export_metadata_action,
+            fg_color=BUTTON_EXPORT
+        )
+    
+    def _metadata_complete_error(self, error_message: str):
+        """Called when metadata export fails"""
+        self._update_status(f"\n❌ METADATA EXPORT ERROR: {error_message}\n")
+        self._update_status_bar("Export failed!", COLOR_DANGER)
+        
+        messagebox.showerror("Export Error", f"Metadata export failed:\n\n{error_message}")
+        
+        self.export_in_progress = False
+        self.metadata_exporter = None
+        self._enable_ui()
+        self.metadata_btn.configure(
+            text="📦 Metadata Exporter",
+            command=self._export_metadata_action,
             fg_color=BUTTON_EXPORT
         )
     
