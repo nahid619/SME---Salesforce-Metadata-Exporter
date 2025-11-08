@@ -1,5 +1,10 @@
 """
-SME - Main Export Screen UI (WITH DEPENDENCY ANALYSIS)
+SME - Main Export Screen UI (FIXED)
+
+BUG FIXES:
+1. Listboxes now start in dark mode correctly
+2. All export buttons disabled during any export operation
+3. Proper button state management
 """
 import customtkinter as ctk
 import tkinter as tk
@@ -44,6 +49,9 @@ class MainScreen(ctk.CTkFrame):
         self.dependency_analyzer = None
         self.metadata_exporter = None
         
+        # Track current theme for listbox colors
+        self.current_theme = "Dark"  # Start with Dark
+        
         # Configure grid
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -59,7 +67,7 @@ class MainScreen(ctk.CTkFrame):
         # Header
         self._create_header()
         
-        # Object Selection Panel (Increased height)
+        # Object Selection Panel
         self._create_selection_panel()
         
         # Export Format Selector
@@ -74,7 +82,7 @@ class MainScreen(ctk.CTkFrame):
         # Progress Bar
         self._create_progress_bar()
         
-        # Terminal/Log Area (Reduced height)
+        # Terminal/Log Area
         self._create_terminal()
     
     def _create_header(self):
@@ -91,10 +99,10 @@ class MainScreen(ctk.CTkFrame):
         )
         title_label.grid(row=0, column=0, sticky="w")
         
-        # Theme Toggle
+        # Theme Toggle (starts with moon for dark mode)
         self.theme_toggle = ctk.CTkButton(
             header_frame, 
-            text="☀️", 
+            text="🌙", 
             command=self._toggle_theme,
             width=40, 
             height=40, 
@@ -119,10 +127,10 @@ class MainScreen(ctk.CTkFrame):
         """Create object selection panel with proper proportions (45% - 20% - 35%)"""
         selection_frame = ctk.CTkFrame(self, height=380)
         selection_frame.grid(row=1, column=0, pady=5, sticky="nsew", padx=15)
-        selection_frame.grid_propagate(False)  # Fixed height
-        selection_frame.grid_columnconfigure(0, weight=45)  # Available: 45%
-        selection_frame.grid_columnconfigure(1, weight=20)  # Actions: 20%
-        selection_frame.grid_columnconfigure(2, weight=35)  # Selected: 35%
+        selection_frame.grid_propagate(False)
+        selection_frame.grid_columnconfigure(0, weight=45)
+        selection_frame.grid_columnconfigure(1, weight=20)
+        selection_frame.grid_columnconfigure(2, weight=35)
         selection_frame.grid_rowconfigure(0, weight=1)
         
         # LEFT: Available Objects (45%)
@@ -200,7 +208,7 @@ class MainScreen(ctk.CTkFrame):
         self.search_entry.grid(row=3, column=0, padx=5, pady=3, sticky="ew")
         self.search_entry.bind("<KeyRelease>", self._filter_available_objects)
         
-        # Listbox
+        # Listbox - BUG FIX: Start with DARK MODE colors
         self.available_listbox = tk.Listbox(
             available_frame,
             selectmode="extended",
@@ -209,8 +217,8 @@ class MainScreen(ctk.CTkFrame):
             borderwidth=0,
             highlightthickness=0,
             selectbackground="#1F538D",
-            fg="#000000",
-            background="#FFFFFF"
+            fg="#FFFFFF",  # White text for dark mode
+            background="#2B2B2B"  # Dark background
         )
         self.available_listbox.grid(row=4, column=0, padx=5, pady=(0, 5), sticky="nsew")
     
@@ -219,7 +227,6 @@ class MainScreen(ctk.CTkFrame):
         action_frame = ctk.CTkFrame(parent, fg_color="transparent")
         action_frame.grid(row=0, column=1, padx=5, pady=0, sticky="nsew")
         
-        # Center the buttons vertically
         action_frame.grid_rowconfigure(0, weight=1)
         action_frame.grid_rowconfigure(7, weight=1)
         action_frame.grid_columnconfigure(0, weight=1)
@@ -284,7 +291,7 @@ class MainScreen(ctk.CTkFrame):
         )
         self.selected_count_label.grid(row=1, column=0, pady=(0, 5))
         
-        # Listbox
+        # Listbox - BUG FIX: Start with DARK MODE colors
         self.selected_listbox = tk.Listbox(
             selected_frame,
             selectmode="extended",
@@ -293,8 +300,8 @@ class MainScreen(ctk.CTkFrame):
             borderwidth=0,
             highlightthickness=0,
             selectbackground="#3366CC",
-            fg="#000000",
-            background="#FFFFFF"
+            fg="#FFFFFF",  # White text for dark mode
+            background="#2B2B2B"  # Dark background
         )
         self.selected_listbox.grid(row=2, column=0, padx=5, pady=(0, 5), sticky="nsew")
     
@@ -344,7 +351,6 @@ class MainScreen(ctk.CTkFrame):
         )
         self.picklist_export_btn.grid(row=0, column=0, padx=4, sticky="ew")
         
-        # UPDATED: Dependency Analysis button now fully functional
         self.dependency_btn = ctk.CTkButton(
             buttons_frame,
             text="🔗 Dependency Analysis",
@@ -356,7 +362,6 @@ class MainScreen(ctk.CTkFrame):
         )
         self.dependency_btn.grid(row=0, column=1, padx=4, sticky="ew")
         
-        # UPDATED: Metadata Exporter button now fully functional
         self.metadata_btn = ctk.CTkButton(
             buttons_frame,
             text="📦 Metadata Exporter",
@@ -409,7 +414,7 @@ class MainScreen(ctk.CTkFrame):
         self.progress_label.grid(row=0, column=1)
     
     def _create_terminal(self):
-        """Create terminal/log area - reduced height to 140px"""
+        """Create terminal/log area"""
         self.status_textbox = ctk.CTkTextbox(
             self,
             height=140,
@@ -419,9 +424,9 @@ class MainScreen(ctk.CTkFrame):
         self.status_textbox.grid(row=6, column=0, padx=15, pady=(5, 10), sticky="nsew")
         
         # Welcome message
-        self.status_textbox.insert("end", "═" * 75 + "\n")
+        self.status_textbox.insert("end", "╔" + "═" * 73 + "╗\n")
         self.status_textbox.insert("end", f"  {APP_NAME} - {APP_FULL_NAME} - Ready\n")
-        self.status_textbox.insert("end", "═" * 75 + "\n")
+        self.status_textbox.insert("end", "╚" + "═" * 73 + "╝\n")
         self.status_textbox.insert("end", "\n✓ Connected successfully. Select objects and click Export.\n")
         self.status_textbox.insert("end", "\n💡 Tips:\n")
         self.status_textbox.insert("end", "   - Press F11 for fullscreen mode\n")
@@ -436,11 +441,15 @@ class MainScreen(ctk.CTkFrame):
         if current_mode == "Dark":
             ctk.set_appearance_mode("Light")
             self.theme_toggle.configure(text="☀️")
+            self.current_theme = "Light"
+            # Update listbox colors for light mode
             self.available_listbox.configure(fg="#000000", background="#FFFFFF")
             self.selected_listbox.configure(fg="#000000", background="#FFFFFF")
         else:
             ctk.set_appearance_mode("Dark")
             self.theme_toggle.configure(text="🌙")
+            self.current_theme = "Dark"
+            # Update listbox colors for dark mode
             self.available_listbox.configure(fg="#FFFFFF", background="#2B2B2B")
             self.selected_listbox.configure(fg="#FFFFFF", background="#2B2B2B")
     
@@ -665,18 +674,22 @@ class MainScreen(ctk.CTkFrame):
             
             self.progress_bar.set(progress)
             self.progress_label.configure(text=f"{percentage}% ({current}/{total})")
-            self._update_status_bar(f"Processing {current}/{total} objects - {percentage}% complete", COLOR_WARNING)
+            self._update_status_bar(f"Processing {current}/{total} - {percentage}% complete", COLOR_WARNING)
         
         self.update_idletasks()
     
     def _disable_ui(self):
-        """Disable all interactive elements during export"""
+        """BUG FIX: Disable ALL export buttons and UI elements during export"""
         self.available_listbox.configure(state="disabled")
         self.selected_listbox.configure(state="disabled")
         self.search_entry.configure(state="disabled")
+        
+        # Disable ALL export buttons
+        self.picklist_export_btn.configure(state="disabled")
         self.dependency_btn.configure(state="disabled")
         self.metadata_btn.configure(state="disabled")
         self.formula_btn.configure(state="disabled")
+        
         self.logout_button.configure(state="disabled")
         self.theme_toggle.configure(state="disabled")
         self.filter_all_btn.configure(state="disabled")
@@ -684,14 +697,17 @@ class MainScreen(ctk.CTkFrame):
         self.filter_custom_btn.configure(state="disabled")
     
     def _enable_ui(self):
-        """Re-enable all interactive elements after export"""
+        """BUG FIX: Re-enable ALL export buttons and UI elements after export"""
         self.available_listbox.configure(state="normal")
         self.selected_listbox.configure(state="normal")
         self.search_entry.configure(state="normal")
+        
+        # Re-enable ALL export buttons
         self.picklist_export_btn.configure(state="normal")
         self.dependency_btn.configure(state="normal")
         self.metadata_btn.configure(state="normal")
         self.formula_btn.configure(state="normal")
+        
         self.logout_button.configure(state="normal")
         self.theme_toggle.configure(state="normal")
         self.filter_all_btn.configure(state="normal")
@@ -735,7 +751,8 @@ class MainScreen(ctk.CTkFrame):
         self.picklist_export_btn.configure(
             text="⏸️ Cancel Export",
             command=self._cancel_export_action,
-            fg_color=BUTTON_CANCEL
+            fg_color=BUTTON_CANCEL,
+            state="normal"
         )
         self._update_status_bar("Export in progress...", COLOR_WARNING)
         self.progress_bar.set(0)
@@ -910,7 +927,8 @@ class MainScreen(ctk.CTkFrame):
         self.dependency_btn.configure(
             text="⏸️ Cancel Analysis",
             command=self._cancel_dependency_action,
-            fg_color=BUTTON_CANCEL
+            fg_color=BUTTON_CANCEL,
+            state="normal"
         )
         self._update_status_bar("Dependency analysis in progress...", COLOR_WARNING)
         self.progress_bar.set(0)
@@ -991,6 +1009,50 @@ class MainScreen(ctk.CTkFrame):
             f"Dependencies Found: {stats['total_dependencies']}\n"
             f"Max Level: {stats['max_dependency_level']}"
         )
+        
+        self.export_in_progress = False
+        self.dependency_analyzer = None
+        self._enable_ui()
+        self.dependency_btn.configure(
+            text="🔗 Dependency Analysis",
+            command=self._export_dependency_action,
+            fg_color=BUTTON_EXPORT
+        )
+    
+    def _dependency_complete_cancelled(self, output_path: str, stats: Dict, runtime_formatted: str):
+        """Called when dependency analysis is cancelled"""
+        self._update_status(f"\n{'='*63}")
+        self._update_status(f"🛑 DEPENDENCY ANALYSIS CANCELLED")
+        self._update_status(f"{'='*63}")
+        self._update_status(f"Runtime: {runtime_formatted}")
+        self._update_status(f"Analyzed: {stats['analyzed_objects']}/{stats['total_objects']} objects")
+        self._update_status(f"Partial data saved to: {output_path}")
+        self._update_status(f"{'='*63}\n")
+        
+        self._update_status_bar("Analysis cancelled", COLOR_WARNING)
+        
+        messagebox.showwarning(
+            "Analysis Cancelled",
+            f"Analysis was cancelled.\n\n"
+            f"Partial data saved to:\n{output_path}\n\n"
+            f"Analyzed: {stats['analyzed_objects']}/{stats['total_objects']} objects"
+        )
+        
+        self.export_in_progress = False
+        self.dependency_analyzer = None
+        self._enable_ui()
+        self.dependency_btn.configure(
+            text="🔗 Dependency Analysis",
+            command=self._export_dependency_action,
+            fg_color=BUTTON_EXPORT
+        )
+    
+    def _dependency_complete_error(self, error_message: str):
+        """Called when dependency analysis fails"""
+        self._update_status(f"\n❌ ANALYSIS ERROR: {error_message}\n")
+        self._update_status_bar("Analysis failed!", COLOR_DANGER)
+        
+        messagebox.showerror("Analysis Error", f"Analysis failed:\n\n{error_message}")
         
         self.export_in_progress = False
         self.dependency_analyzer = None
@@ -1115,7 +1177,8 @@ class MainScreen(ctk.CTkFrame):
         self.metadata_btn.configure(
             text="⏸️ Cancel Export",
             command=self._cancel_metadata_action,
-            fg_color=BUTTON_CANCEL
+            fg_color=BUTTON_CANCEL,
+            state="normal"
         )
         self._update_status_bar("Metadata export in progress...", COLOR_WARNING)
         self.progress_bar.set(0)
@@ -1250,49 +1313,5 @@ class MainScreen(ctk.CTkFrame):
         self.metadata_btn.configure(
             text="📦 Metadata Exporter",
             command=self._export_metadata_action,
-            fg_color=BUTTON_EXPORT
-        )
-    
-    def _dependency_complete_cancelled(self, output_path: str, stats: Dict, runtime_formatted: str):
-        """Called when dependency analysis is cancelled"""
-        self._update_status(f"\n{'='*63}")
-        self._update_status(f"🛑 DEPENDENCY ANALYSIS CANCELLED")
-        self._update_status(f"{'='*63}")
-        self._update_status(f"Runtime: {runtime_formatted}")
-        self._update_status(f"Analyzed: {stats['analyzed_objects']}/{stats['total_objects']} objects")
-        self._update_status(f"Partial data saved to: {output_path}")
-        self._update_status(f"{'='*63}\n")
-        
-        self._update_status_bar("Analysis cancelled", COLOR_WARNING)
-        
-        messagebox.showwarning(
-            "Analysis Cancelled",
-            f"Analysis was cancelled.\n\n"
-            f"Partial data saved to:\n{output_path}\n\n"
-            f"Analyzed: {stats['analyzed_objects']}/{stats['total_objects']} objects"
-        )
-        
-        self.export_in_progress = False
-        self.dependency_analyzer = None
-        self._enable_ui()
-        self.dependency_btn.configure(
-            text="🔗 Dependency Analysis",
-            command=self._export_dependency_action,
-            fg_color=BUTTON_EXPORT
-        )
-    
-    def _dependency_complete_error(self, error_message: str):
-        """Called when dependency analysis fails"""
-        self._update_status(f"\n❌ ANALYSIS ERROR: {error_message}\n")
-        self._update_status_bar("Analysis failed!", COLOR_DANGER)
-        
-        messagebox.showerror("Analysis Error", f"Analysis failed:\n\n{error_message}")
-        
-        self.export_in_progress = False
-        self.dependency_analyzer = None
-        self._enable_ui()
-        self.dependency_btn.configure(
-            text="🔗 Dependency Analysis",
-            command=self._export_dependency_action,
             fg_color=BUTTON_EXPORT
         )
