@@ -3,6 +3,8 @@ SME (Salesforce Metadata Exporter)
 Main Application Entry Point
 
 Author: Nahid Hasan
+
+UPDATED: Dark mode set as default
 """
 import sys
 import customtkinter as ctk
@@ -136,8 +138,8 @@ class SMEApplication(ctk.CTk):
 def main():
     """Main entry point"""
     try:
-        # Set appearance
-        ctk.set_appearance_mode("Light")
+        # Set appearance to DARK MODE (default)
+        ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
         
         # Create and run application
