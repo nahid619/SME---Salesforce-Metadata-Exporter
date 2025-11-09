@@ -9,6 +9,7 @@ BUG FIXES:
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox, filedialog, END
+from ui.soql_query_screen import SOQLQueryScreen
 from typing import List, Set, Callable, Dict
 from datetime import datetime
 import time
@@ -48,6 +49,8 @@ class MainScreen(ctk.CTkFrame):
         self.picklist_exporter = None
         self.dependency_analyzer = None
         self.metadata_exporter = None
+
+        self.soql_screen = None  # NEW: SOQL screen instance
         
         # Track current theme for listbox colors
         self.current_theme = "Dark"  # Start with Dark
@@ -373,15 +376,17 @@ class MainScreen(ctk.CTkFrame):
         )
         self.metadata_btn.grid(row=0, column=2, padx=4, sticky="ew")
         
-        self.formula_btn = ctk.CTkButton(
+        # NEW: SOQL Query Runner button (replaces Formula Fields)
+        self.soql_btn = ctk.CTkButton(
             buttons_frame,
-            text="🧮 Formula Fields Extractor",
-            command=self._coming_soon,
+            text="⚡ SOQL Query Runner",
+            command=self._open_soql_query_screen,
             height=42,
-            fg_color=BUTTON_PLACEHOLDER,
-            font=ctk.CTkFont(size=13)
+            fg_color=BUTTON_EXPORT,
+            hover_color=BUTTON_EXPORT_HOVER,
+            font=ctk.CTkFont(size=13, weight="bold")
         )
-        self.formula_btn.grid(row=0, column=3, padx=4, sticky="ew")
+        self.soql_btn.grid(row=0, column=3, padx=4, sticky="ew")
     
     def _create_status_bar(self):
         """Create status bar"""
@@ -683,12 +688,13 @@ class MainScreen(ctk.CTkFrame):
         self.available_listbox.configure(state="disabled")
         self.selected_listbox.configure(state="disabled")
         self.search_entry.configure(state="disabled")
-        
+
+
         # Disable ALL export buttons
         self.picklist_export_btn.configure(state="disabled")
         self.dependency_btn.configure(state="disabled")
         self.metadata_btn.configure(state="disabled")
-        self.formula_btn.configure(state="disabled")
+        self.soql_btn.configure(state="disabled")
         
         self.logout_button.configure(state="disabled")
         self.theme_toggle.configure(state="disabled")
@@ -701,18 +707,46 @@ class MainScreen(ctk.CTkFrame):
         self.available_listbox.configure(state="normal")
         self.selected_listbox.configure(state="normal")
         self.search_entry.configure(state="normal")
-        
+        self.soql_btn.configure(state="normal")
+
         # Re-enable ALL export buttons
         self.picklist_export_btn.configure(state="normal")
         self.dependency_btn.configure(state="normal")
         self.metadata_btn.configure(state="normal")
-        self.formula_btn.configure(state="normal")
+        self.soql_btn.configure(state="normal")
         
         self.logout_button.configure(state="normal")
         self.theme_toggle.configure(state="normal")
         self.filter_all_btn.configure(state="normal")
         self.filter_standard_btn.configure(state="normal")
         self.filter_custom_btn.configure(state="normal")
+    
+    
+    # ==================== SOQL QUERY SCREEN NAVIGATION ====================
+
+    def _open_soql_query_screen(self):
+        """Open SOQL Query Runner screen"""
+        # Hide main screen
+        self.grid_forget()
+        
+        # Create and show SOQL screen
+        if self.soql_screen is None:
+            self.soql_screen = SOQLQueryScreen(
+                self.master,
+                sf_client=self.sf_client,
+                on_back=self._close_soql_query_screen
+            )
+        
+        self.soql_screen.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+
+    def _close_soql_query_screen(self):
+        """Close SOQL Query Runner screen and return to main"""
+        if self.soql_screen:
+            self.soql_screen.grid_forget()
+        
+        # Show main screen again
+        self.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+
     
     # ==================== PICKLIST EXPORT HANDLERS ====================
     
