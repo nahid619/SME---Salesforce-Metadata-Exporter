@@ -200,3 +200,68 @@ class SOQLQueryRunner:
         
         except Exception as e:
             raise Exception(f"CSV export failed: {str(e)}")
+        
+    def export_to_excel(self, results: List[Dict], output_path: str):
+        """
+        Export query results to Excel file
+        
+        Args:
+            results: List of record dictionaries
+            output_path: Path to save Excel file
+            
+        Raises:
+            Exception: If export fails
+        """
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment
+            
+            if not results:
+                raise ValueError("No results to export")
+            
+            self._log_status(f"Exporting {len(results)} records to Excel...")
+            
+            # Create workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Query Results"
+            
+            # Get all unique column names
+            all_columns = set()
+            for record in results:
+                all_columns.update(record.keys())
+            
+            columns = sorted(list(all_columns))
+            
+            # Write header row
+            for col_idx, col_name in enumerate(columns, 1):
+                cell = ws.cell(row=1, column=col_idx, value=col_name)
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            
+            # Write data rows
+            for row_idx, record in enumerate(results, 2):
+                for col_idx, col_name in enumerate(columns, 1):
+                    value = record.get(col_name, '')
+                    ws.cell(row=row_idx, column=col_idx, value=value)
+            
+            # Auto-adjust column widths
+            for col_idx, col_name in enumerate(columns, 1):
+                max_length = len(col_name)
+                for row_idx in range(2, min(len(results) + 2, 100)):  # Check first 100 rows
+                    cell_value = str(ws.cell(row=row_idx, column=col_idx).value or '')
+                    max_length = max(max_length, len(cell_value))
+                
+                ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = min(max_length + 2, 50)
+            
+            # Freeze header row
+            ws.freeze_panes = "A2"
+            
+            # Save workbook
+            wb.save(output_path)
+            
+            self._log_status(f"✅ Excel export complete: {output_path}")
+        
+        except Exception as e:
+            raise Exception(f"Excel export failed: {str(e)}")

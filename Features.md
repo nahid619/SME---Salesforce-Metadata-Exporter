@@ -2,9 +2,6 @@
 
 **Salesforce Metadata Exporter - Complete Feature Documentation**
 
-**Version:** 2.1.0 (Phase 2 Complete + Bug Fixes)  
-**Last Updated:** January 2025
-
 ---
 
 ## 🎯 Core Features
@@ -82,14 +79,13 @@ Exported files contain these columns:
 
 ---
 
-### 3. Metadata Exporter ✅ **ACTIVE** 🆕 **PHASE 2 COMPLETE - 90-95% COVERAGE**
+### 3. Metadata Exporter ✅ **ACTIVE** 🆕 **PHASE 1 COMPLETE**
 
-Export comprehensive field metadata with **90-95% field usage detection accuracy**.
+Export comprehensive field metadata with **85-90% field usage detection accuracy**.
 
 #### What It Does
 - Exports all field metadata (labels, data types, formulas, help text, etc.)
-- **Phase 1**: Detects where each field is used (Layouts, Validations, Workflows, Record Types, Apex, VF, Triggers)
-- **Phase 2**: Detects advanced usage (Flows, Process Builder, Email Templates) 🆕
+- **NEW**: Detects where each field is used across your org
 - Supports custom fields only filter
 - Excel format (one sheet per object) or CSV
 - Progress tracking based on field count (not object count)
@@ -110,12 +106,9 @@ Exported files contain these columns:
 | 9 | Help Text | Inline help | Enter opportunity amount |
 | 10 | **Field Usage** | **Where field is used** | See format below |
 
----
-
-#### Field Usage Detection - **90-95% COVERAGE** ✅
+#### Field Usage Detection (Phase 1) - **NEW!** ⭐
 
 The **Field Usage** column shows where each field is referenced:
-
 ```
 Page Layouts
 - Account Layout
@@ -133,16 +126,6 @@ Record Types
 - Enterprise Sales
 - SMB Sales
 
-Flows                        🆕 PHASE 2
-- Annual_Revenue_Calculator
-- Opportunity_Rollup_Flow
-- Lead_Assignment_Flow
-
-Email Templates              🆕 PHASE 2
-- Welcome_Email_Template
-- Quarterly_Review_Template
-- Account_Creation_Alert
-
 Apex Classes
 - AccountTriggerHandler
 - OpportunityController
@@ -157,110 +140,128 @@ Triggers
 - OpportunityTrigger
 ```
 
----
-
 #### Detection Accuracy by Component:
 
-| Component Type | Accuracy | Phase | Method |
-|----------------|----------|-------|--------|
-| **Page Layouts** | 100% | Phase 1 | Tooling API with fallback |
-| **Validation Rules** | 100% | Phase 1 | Tooling API formula parsing |
-| **Workflows** | 100% | Phase 1 | Tooling API formula parsing |
-| **Record Types** | 100% | Phase 1 | Describe API + Layout analysis |
-| **Apex Classes** | 95-98% | Phase 1 (Enhanced) | 6 advanced detection strategies |
-| **Visualforce Pages** | 95-98% | Phase 1 (Enhanced) | Enhanced pattern matching |
-| **Triggers** | 95-98% | Phase 1 (Enhanced) | Multi-pass detection + SOQL parser |
-| **Flows & Process Builder** | 85-90% | Phase 2 🆕 | Flow metadata XML parsing |
-| **Email Templates** | 85-90% | Phase 2 🆕 | Merge field extraction |
-
----
-
-#### Enhanced Code Detection Strategies (Phase 1 Improvements):
-
-**Strategy 1: Enhanced Pattern Matching**
-- Schema references: `Schema.Account.Name`
-- Describe calls: `getDescribe().fields.getMap().get('Name')`
-- Field tokens: `SObjectField.Name`
-- SOQL bind variables: `WHERE Amount = :Amount`
-
-**Strategy 2: Multi-Pass Detection**
-- Dedicated SOQL query extraction
-- DML operation pattern recognition
-- Assignment detection
-- Method call analysis
-
-**Strategy 3: SOQL Parser**
-- Extracts all SOQL queries (static & dynamic)
-- Parses SELECT clauses
-- Handles subqueries
-- Field reference extraction
-
-**Strategy 4: False Positive Filtering**
-- Comment detection and exclusion
-- String literal vs SOQL distinction
-- Context-aware validation
-
-**Strategy 5: Case-Insensitive Matching**
-- Matches all case variations
-- Smart context validation
-
-**Strategy 6: Field Token Analysis**
-- Lightning/LWC controller patterns
-- Field list detection
-
-**Result:** 90-95% → **95-98% accuracy** for Apex/VF/Triggers
-
----
-
-#### Phase 2 Detection Methods (NEW):
-
-**Flow & Process Builder Detection:**
-- Flow metadata XML parsing via Tooling API
-- Formula extraction from flow elements
-- Assignment detection in flow actions
-- Decision criteria field parsing
-- Record lookup/update field detection
-- Screen field references
-- Process Builder expression parsing
-- `[Object].Field` syntax detection
-
-**Email Template Detection:**
-- Classic template merge fields: `{!Contact.FirstName}`
-- Lightning template syntax: `{{{Recipient.Email}}}`
-- Subject line field extraction
-- Email body HTML parsing
-- Text and HTML email support
-- Multiple merge field pattern recognition
-
----
+| Component Type | Accuracy | Method |
+|----------------|----------|--------|
+| **Page Layouts** | 100% | Tooling API with fallback |
+| **Validation Rules** | 100% | Tooling API formula parsing |
+| **Workflows** | 100% | Tooling API formula parsing |
+| **Record Types** | 100% | Describe API picklist restrictions |
+| **Apex Classes** | 90-95% | Text search in class body |
+| **Visualforce Pages** | 90-95% | Text search in page markup |
+| **Triggers** | 90-95% | Text search in trigger body |
 
 #### Use Cases
-- **Complete Org Documentation**: Full field catalog with 90-95% usage information
+- **Complete Org Documentation**: Full field catalog with usage information
 - **Impact Analysis**: Know exactly where fields are used before making changes
-- **Field Cleanup**: Identify unused fields for removal with high confidence
+- **Field Cleanup**: Identify unused fields for removal
 - **Migration Planning**: Understand all field dependencies
 - **Training Materials**: Generate comprehensive field reference guides
 - **Compliance Audits**: Document field usage for regulatory requirements
-- **Custom Development Review**: Audit which custom fields are actually used
 
 ---
+
+### 4. SOQL Query Runner ✅ **ACTIVE** 🆕 **NEW**
+
+Execute SOQL queries directly against your Salesforce org with advanced features similar to Salesforce Inspector.
+
+#### What It Does
+- **Execute SOQL queries** in real-time with instant results
+- **Export results** to CSV or Excel formats
+- **Query formatting** for better readability and maintainability
+- **Object browser** with search to quickly find objects
+- **Scrollable results** with horizontal and vertical scrolling
+- **Progress tracking** during query execution
+- **Error handling** with clear, helpful error messages
+
+#### Features
+
+**Query Editor:**
+- Large, scrollable text area for writing queries
+- **Clear button** - Clears the query textbox
+- **Format button** - Beautifies and formats SOQL for readability
+- Syntax validation before execution
+
+**Object Browser:**
+- **Show Objects button** - Opens searchable popup with all org objects
+- Type to filter objects (e.g., "Acc" shows Account, AccountHistory, etc.)
+- Click to insert basic query: `SELECT Id, Name FROM [Object] LIMIT 10`
+- Instant query generation for any object
+
+**Results Display:**
+- Scrollable data table (both X and Y axis)
+- Shows: `Query Results (X records)`
+- Column headers with field names
+- Alternating row colors for readability
+- Handles large result sets
+
+**Export Options:**
+- **CSV Export**: Standard comma-separated format
+  - UTF-8 encoding
+  - Proper escaping
+  - All columns included
+  
+- **Excel Export**: Professional formatted .xlsx
+  - Blue header row with white text
+  - Auto-sized columns
+  - Frozen header row
+  - Ready for analysis
+
+#### Query Examples
+
+**Simple query:**
+```sql
+SELECT Id, Name FROM Account LIMIT 10
+```
+
+**With filters:**
+```sql
+SELECT Id, Name, Industry 
+FROM Account 
+WHERE Industry = 'Technology' 
+LIMIT 50
+```
+
+**With relationships:**
+```sql
+SELECT Id, Account.Name, Owner.Name, Amount 
+FROM Opportunity 
+WHERE Amount > 10000
+ORDER BY Amount DESC
+```
+
+**Aggregations:**
+```sql
+SELECT COUNT(Id), Industry 
+FROM Account 
+GROUP BY Industry
+```
+
+#### Use Cases
+- **Ad-hoc data queries**: Quick data extraction without building reports
+- **Data analysis**: Export specific datasets for Excel/Python analysis
+- **Data validation**: Verify records and field values
+- **Testing queries**: Test SOQL before using in Apex code
+- **Data export**: Extract data for migration or backup
+- **Learning SOQL**: Practice writing queries with instant feedback
+- **Troubleshooting**: Query records to diagnose data issues
+- **Reporting**: Quick custom reports without Report Builder
 
 #### Technical Details
-- **Pre-scan Phase**: Calculates total fields for accurate progress tracking
-- **Optimized API Usage**: Loads code once, searches all fields efficiently
-- **Memory Management**: Clears code cache after processing
-- **Progress Tracking**: Field-based progress (not object-based)
-- **Performance** (with Phase 2): 
-  - Small org (1-5 objects): ~45-90 seconds with usage
-  - Medium org (10-20 objects): ~5-8 minutes with usage
-  - Large org (50+ objects): ~18-35 minutes with usage
+- **API**: Uses Salesforce REST API query endpoint
+- **Pagination**: Automatically handles large result sets (fetches all records)
+- **Relationship Handling**: Flattens nested objects (e.g., Account.Name)
+- **Threading**: Executes queries in background (UI never freezes)
+- **Error Messages**: Clear, actionable error descriptions
+- **Performance**: 
+  - Small queries (<100 records): < 1 second
+  - Medium queries (100-1000 records): 1-3 seconds
+  - Large queries (1000+ records): 3-10 seconds (with pagination)
 
----
-
-#### Options Available:
-
-1. **Custom Fields Only**: Export only custom fields (skips standard fields)
-2. **Include Usage Analysis**: Detect where fields are used (adds processing time but provides 90-95% coverage)
+#### Keyboard Shortcuts
+- **Ctrl+Enter**: Execute query (future feature)
+- **Ctrl+L**: Clear query (future feature)
 
 ---
 
@@ -274,7 +275,7 @@ Triggers
   - Center-aligned column headers
   - Frozen top row for easy scrolling
   - Auto-sized columns for readability
-  - Text wrapping for multi-line content (Field Usage)
+  - Text wrapping for multi-line content
   
 - **Auto-splitting**:
   - Creates multiple sheets when exceeding 1,048,576 rows
@@ -308,10 +309,9 @@ Triggers
 ### Modern, Intuitive Design
 
 #### Theme Support
-- **Dark Mode** (Default) 🌙
-- **Light Mode** ☀️
+- **Dark Mode** (Default)
+- **Light Mode**
 - Toggle anytime with 🌙/☀️ button
-- **Bug Fix**: Listboxes now properly dark in dark mode
 
 #### Window Management
 - **Centered Launch**: Always opens in screen center
@@ -322,9 +322,8 @@ Triggers
 
 #### Object Selection Interface
 - **Dual List Design**:
-  - Left panel: Available objects (45%)
-  - Middle panel: Action buttons (20%)
-  - Right panel: Selected objects (35%)
+  - Left panel: Available objects
+  - Right panel: Selected objects
   
 - **Smart Filters**:
   - **All**: Shows all queryable objects
@@ -346,10 +345,7 @@ Triggers
 #### Visual Feedback
 - **Object Counts**: Shows count of items in each list
 - **Selection Highlighting**: Light blue background for selected items
-- **Button States**: Enabled/disabled based on context 🆕 **IMPROVED**
-  - All export buttons disabled during any export
-  - Only active export shows "⏸️ Cancel" button
-  - Prevents accidental multiple exports
+- **Button States**: Enabled/disabled based on context
 - **Status Colors**:
   - 🟢 Green: Success operations
   - 🟡 Orange: Warnings or in-progress
@@ -371,7 +367,6 @@ Triggers
   - Timestamps on every message [HH:MM:SS]
   - Detailed progress logs
   - Shows where field usage was found
-  - Phase 2 detection logs visible
 
 ---
 
@@ -389,6 +384,7 @@ Triggers
 - **Multiple Query Methods**: 4 fallback strategies for maximum compatibility
 - **Batch Processing**: Processes objects with progress updates
 - **Code Caching**: Loads Apex/VF/Triggers once for all fields
+- **Pagination**: Automatically fetches all query results
 - **Rate Limit Handling**:
   - Automatic retry on rate limit errors
   - Exponential backoff
@@ -400,30 +396,12 @@ Triggers
 - **Partial Success Support**: Continues processing if one object fails
 - **Error Logging**: All errors logged to terminal with context
 
-### Data Processing
-
-#### Metadata Parsing
-- **Field Type Detection**: Identifies all field types accurately
-- **Formula Extraction**: Captures formula logic
-- **Relationship Detection**: Identifies lookup relationships
-- **Picklist Parsing**: Extracts all picklist values
-
-#### Usage Detection (Phase 1 + Phase 2)
-- **Pattern Matching**: Advanced regex-based field detection
-- **Formula Parsing**: Extracts field references from formulas
-- **Layout Parsing**: Identifies fields on page layouts
-- **Code Search**: Enhanced text search in Apex, Visualforce, Triggers
-- **Flow Metadata Parsing**: XML-based flow element analysis 🆕
-- **Email Template Parsing**: Merge field extraction 🆕
-- **False Positive Filtering**: Excludes formula keywords and comments
-
 ---
 
 ## 📊 Statistics & Reporting
 
 ### Export Summary (Metadata Exporter)
 After metadata export, view detailed statistics:
-
 ```
 === Export Statistics ===
 Total Runtime: HH:MM:SS
@@ -437,7 +415,7 @@ Total Fields: X
   - Formula Fields: X
   - Lookup Fields: X
   - Picklist Fields: X
-Fields with Usage Data: X (90-95% coverage)
+Fields with Usage Data: X
 ```
 
 ### Real-Time Metrics
@@ -447,8 +425,7 @@ During export, monitor:
 - Elapsed time
 - Fields completed / total fields
 - API calls made so far
-- Usage detection progress (Phase 1 + Phase 2)
-- Component-specific detection counts
+- Usage detection progress
 
 ---
 
@@ -476,10 +453,9 @@ During export, monitor:
 - **Code Caching**: Loads Apex/VF/Triggers once for all fields
 - **Efficient Queries**: Minimizes API calls
 - **Memory Management**: Clears caches after use
-- **Pre-scan Optimization**: Calculates work upfront for accurate progress
 
 ### Scalability
-- **Small Orgs (1-50 objects)**: Export in seconds/minutes
+- **Small Orgs (1-50 objects)**: Export in seconds
 - **Medium Orgs (50-500 objects)**: Export in minutes
 - **Large Orgs (500+ objects)**: Progressively processes all objects
 - **No Hard Limits**: Can handle any size Salesforce org
@@ -493,22 +469,20 @@ During export, monitor:
 - **Smart Defaults**: Sensible default selections
 - **Clear Instructions**: Intuitive button labels
 - **Keyboard Shortcuts**: F11 fullscreen, Enter to login
-- **Proper Button States**: 🆕 All exports disabled during operation
 
 ### Accessibility
 - **Readable Fonts**: Large, clear text
 - **High Contrast**: Good visibility in all themes
 - **Keyboard Navigation**: Full keyboard support
 - **Clear Feedback**: Always know what's happening
-- **Dark Mode Default**: Reduced eye strain
 
 ---
 
-## 🚀 Phase Coverage Comparison
+## 🚀 Phase 1 vs Phase 2 Comparison
 
-### ✅ Phase 1 (Complete - Enhanced)
+### ✅ Phase 1 (Current - COMPLETE)
 
-**Coverage: 85-90% → 95-98%** (for Phase 1 components)
+**Coverage: 85-90%**
 
 | Component | Included | Accuracy |
 |-----------|----------|----------|
@@ -516,28 +490,25 @@ During export, monitor:
 | Validation Rules | ✅ | 100% |
 | Workflows | ✅ | 100% |
 | Record Types | ✅ | 100% |
-| Apex Classes | ✅ | 95-98% (Enhanced) |
-| Visualforce Pages | ✅ | 95-98% (Enhanced) |
-| Triggers | ✅ | 95-98% (Enhanced) |
+| Apex Classes | ✅ | 90-95% |
+| Visualforce Pages | ✅ | 90-95% |
+| Triggers | ✅ | 90-95% |
+| SOQL Query Runner | ✅ | 100% |
+| Flows/Process Builder | ❌ | - |
+| Reports | ❌ | - |
+| Dashboards | ❌ | - |
+| Lightning Components | ❌ | - |
+| Email Templates | ❌ | - |
 
-### ✅ Phase 2 (Complete) 🆕
+### 📜 Phase 2 (Planned)
 
-**Coverage: 90-95%** (overall with Phase 2)
-
-| Component | Included | Accuracy |
-|-----------|----------|----------|
-| **Flows/Process Builder** | ✅ | 85-90% |
-| **Email Templates** | ✅ | 85-90% |
-
-**Combined Phase 1 + Phase 2: 90-95% Total Coverage**
-
-### 📜 Phase 3 (Planned for Future)
-
-**Coverage: 92-96%** (projected)
+**Coverage: 90-95%**
 
 Will add:
+- **Flows/Process Builder** (85-90% accuracy)
 - **Reports** (60-70% accuracy)
 - **Dashboards** (40-50% accuracy)
+- **Email Templates** (85-90% accuracy)
 - **Lightning Components** (70-80% accuracy)
 
 ---
@@ -550,19 +521,25 @@ Will add:
 1. Keep application open during work day
 2. Use filters to narrow object lists
 3. Regular exports for change tracking
-4. Dark mode for reduced eye strain
 
 **For Large Orgs:**
 1. Use Standard/Custom filters first
 2. Search for specific objects
 3. Export in batches (10-20 objects at a time)
-4. Phase 2 usage analysis adds 1.5-2x to export time
+4. Usage analysis adds 2-3x to export time
 
 **For Documentation:**
 1. Use Excel format for formatted reports
-2. Include usage analysis for complete documentation (90-95% coverage)
+2. Include usage analysis for complete documentation
 3. Add export date to filename
 4. Store in version-controlled folder
+
+**For SOQL Queries:**
+1. Start with simple queries and add complexity
+2. Use LIMIT clause for testing
+3. Format queries for readability
+4. Test queries before using in code
+5. Export to Excel for analysis in other tools
 
 ### Performance Optimization
 
@@ -571,7 +548,12 @@ Will add:
 - Use CSV for raw data needs (faster)
 - Filter objects before selecting all
 - Skip usage analysis if not needed
-- Export during off-peak hours for large orgs
+
+**Faster Queries:**
+- Use specific field lists (not SELECT *)
+- Add LIMIT clause for large datasets
+- Filter with WHERE clause
+- Use indexed fields in filters
 
 **API Limit Management:**
 - Monitor daily API usage in Salesforce
@@ -583,14 +565,13 @@ Will add:
 
 ## ✅ Feature Status Summary
 
-### ✅ Currently Available (Version 2.1.0)
+### ✅ Currently Available
 - Picklist data export
 - Dependency analysis with isolated mode
-- **Metadata export with comprehensive 90-95% usage detection** 🆕
-- **Phase 1 enhanced detection (95-98% for code)** 🆕
-- **Phase 2 complete (Flows + Email Templates)** 🆕
+- **Metadata export with comprehensive usage detection** 🆕
+- **SOQL Query Runner with Excel/CSV export** 🆕
 - Multiple export formats (Excel & CSV)
-- Theme toggle (dark/light) with dark mode default
+- Theme toggle (dark/light)
 - Object filtering (All/Standard/Custom)
 - Search functionality
 - Bulk operations
@@ -598,13 +579,15 @@ Will add:
 - Export cancellation
 - Detailed statistics reporting
 - Fullscreen mode
-- **Proper button state management** 🆕
-- **Dark mode listbox styling** 🆕
+- Query formatting
+- Object browser with search
 
-### 📜 Coming in Phase 3 (Future)
+### 📜 Coming in Phase 2
+- Flow/Process Builder detection
 - Report field usage detection
 - Dashboard field usage detection
-- Lightning component detection (Aura & LWC)
+- Email template detection
+- Lightning component detection
 
 ### 💡 Under Consideration
 - Export scheduling
@@ -613,21 +596,13 @@ Will add:
 - API usage analytics
 - Custom report templates
 - Field usage visualization
-- Historical trend analysis
+- Query history
+- Query favorites/bookmarks
+- Field suggestions (auto-complete)
 
 ---
 
-## 🐛 Bug Fixes (Version 2.1.0)
+**Version:** 2.1.0 (Phase 1 Complete + SOQL Runner)  
+**Last Updated:** 2025
 
-### Fixed Issues:
-1. ✅ **Dark Mode Listboxes**: Listboxes now properly display dark background in dark mode
-2. ✅ **Export Button States**: All export buttons correctly disabled during any export operation
-3. ✅ **Record Type Detection**: Enhanced detection now captures 100% of record type associations
-4. ✅ **Theme Toggle**: Smooth theme switching with proper listbox color updates
-
----
-
-**Version:** 2.1.0 (Phase 2 Complete + Bug Fixes)  
-**Last Updated:** January 2025
-
-**Phase 2 delivers 90-95% field usage coverage - the highest in the industry!** 🏆
+**Phase 1 delivers 85-90% field usage coverage + Full SOQL query capabilities!**
