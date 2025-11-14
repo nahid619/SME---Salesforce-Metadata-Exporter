@@ -35,8 +35,9 @@ class SOQLQueryScreen(ctk.CTkFrame):
         self.query_in_progress = False
         self.query_runner = SOQLQueryRunner(sf_client, status_callback=self._log_status)
         
-        # Load all objects from org
-        self.all_objects = self._load_org_objects()
+        # Start with empty objects list - load in background
+        self.all_objects = []
+        self.objects_loading = True
         
         # Configure grid
         self.grid_rowconfigure(1, weight=1)  # Query section - moderate space
@@ -62,6 +63,12 @@ class SOQLQueryScreen(ctk.CTkFrame):
         
         # Progress Bar
         self._create_progress_bar()
+        # Setup UI
+        self._setup_ui()
+        
+        # Load objects in background AFTER UI is ready
+        self._log_status(f"{get_timestamp()} 🔄 Loading objects in background...")
+        threading.Thread(target=self._load_org_objects_async, daemon=True).start()
     
     def _create_header(self):
         """Create header with back button and title"""
@@ -279,21 +286,33 @@ class SOQLQueryScreen(ctk.CTkFrame):
         self.progress_bar.grid(row=4, column=0, sticky="ew", padx=15, pady=(3, 10))
         self.progress_bar.set(0)
     
-    def _load_org_objects(self) -> List[str]:
+    def _load_org_objects_async(self):
         """
-        Load all queryable objects from Salesforce org
-        
-        Returns:
-            List of object API names
+        Load all queryable objects from Salesforce org in background thread
         """
         try:
-            self._log_status(f"{get_timestamp()} Loading objects from org...")
             objects = self.sf_client.fetch_all_objects()
-            self._log_status(f"{get_timestamp()} ✅ Loaded {len(objects)} objects")
-            return objects
+            # Update UI on main thread
+            self.after(0, self._objects_loaded_success, objects)
         except Exception as e:
-            self._log_status(f"{get_timestamp()} ⚠️ Failed to load objects: {str(e)}")
-            return []
+            self.after(0, self._objects_loaded_error, str(e))
+
+    def _objects_loaded_success(self, objects: List[str]):
+        """Called when objects are loaded successfully"""
+        self.all_objects = objects
+        self.objects_loading = False
+        self._log_status(f"{get_timestamp()} ✅ Loaded {len(objects)} objects")
+        # Enable show objects button if it was disabled
+        self.show_objects_btn.configure(state="normal")
+
+    def _objects_loaded_error(self, error_message: str):
+        """Called when object loading fails"""
+        self.objects_loading = False
+        self._log_status(f"{get_timestamp()} ⚠️ Failed to load objects: {error_message}")
+        messagebox.showwarning(
+            "Warning", 
+            f"Failed to load objects from org:\n{error_message}\n\nYou can still write queries manually."
+        )
     
     # ==================== Event Handlers ====================
     
@@ -313,6 +332,13 @@ class SOQLQueryScreen(ctk.CTkFrame):
         self.query_textbox.delete("1.0", "end")
         self._log_status(f"{get_timestamp()} Query cleared")
         self._update_status_bar("Query cleared", COLOR_SUCCESS)
+        
+        # Clear results and disable export buttons
+        self.query_results = []
+        self.results_label.configure(text="Query Results (0 records)")
+        self.results_tree.delete(*self.results_tree.get_children())
+        self.export_excel_btn.configure(state="disabled")
+        self.export_csv_btn.configure(state="disabled")
     
     def _format_query_action(self):
         """Format/beautify the SOQL query"""
@@ -371,6 +397,14 @@ class SOQLQueryScreen(ctk.CTkFrame):
     
     def _show_objects_popup(self):
         """Show popup with all objects and search"""
+        # Check if objects are still loading
+        if self.objects_loading or not self.all_objects:
+            messagebox.showinfo(
+                "Loading Objects",
+                "Objects are still loading from Salesforce. Please wait a moment and try again."
+            )
+            return
+
         # Create popup window
         popup = Toplevel(self)
         popup.title("Select Object")
@@ -688,8 +722,14 @@ class SOQLQueryScreen(ctk.CTkFrame):
         self.format_btn.configure(state="normal")
         self.show_objects_btn.configure(state="normal")
         self.query_textbox.configure(state="normal")
-        self.export_excel_btn.configure(state="normal")
-        self.export_csv_btn.configure(state="normal")
+        
+        # Only enable export buttons if we have results
+        if self.query_results and len(self.query_results) > 0:
+            self.export_excel_btn.configure(state="normal")
+            self.export_csv_btn.configure(state="normal")
+        else:
+            self.export_excel_btn.configure(state="disabled")
+            self.export_csv_btn.configure(state="disabled")
     
     def _update_status_bar(self, message: str, color: str = COLOR_SUCCESS):
         """Update status bar with message and color"""

@@ -15,3 +15,5 @@ requests==2.31.0
 
 # Modern GUI framework
 customtkinter==5.2.1
+
+psutil>=5.9.0

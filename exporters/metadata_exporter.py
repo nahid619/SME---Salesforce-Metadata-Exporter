@@ -223,6 +223,11 @@ class MetadataExporter:
                     
                     # Count field types and usage
                     for field in field_metadata_list:
+                        if i > 0 and i % 10 == 0:
+                            self._log_status(f"  🧹 Performing memory cleanup...")
+                            import gc
+                            gc.collect()
+                        
                         if field.field_type == "Custom":
                             stats['custom_fields'] += 1
                         else:
@@ -283,23 +288,40 @@ class MetadataExporter:
         """
         cache = {}
         
-        for obj_name in object_names:
-            if self.cancel_event.is_set():
-                break
+        # Process objects in batches to manage memory
+        batch_size = 5  # Process 5 objects at a time
+        
+        for i in range(0, len(object_names), batch_size):
+            batch = object_names[i:i+batch_size]
             
-            self._log_status(f"Loading usage data for {obj_name}...")
-            
-            cache[obj_name] = {
-                # Phase 1 (existing)
-                'page_layouts': self.layout_detector.detect_usage(obj_name),
-                'validation_rules': self.validation_detector.detect_usage(obj_name),
-                'workflows': self.workflow_detector.detect_usage(obj_name),
-                'record_types': self.recordtype_detector.detect_usage(obj_name),
+            for obj_name in batch:
+                if self.cancel_event.is_set():
+                    break
                 
-                # Phase 2 (NEW)
-                'flows': self.flow_detector.detect_usage(obj_name),
-                'email_templates': self.email_template_detector.detect_usage(obj_name)
-            }
+                self._log_status(f"Loading usage data for {obj_name}...")
+                
+                cache[obj_name] = {
+                    # Phase 1 (existing)
+                    'page_layouts': self.layout_detector.detect_usage(obj_name),
+                    'validation_rules': self.validation_detector.detect_usage(obj_name),
+                    'workflows': self.workflow_detector.detect_usage(obj_name),
+                    'record_types': self.recordtype_detector.detect_usage(obj_name),
+                    
+                    # Phase 2 (NEW)
+                    'flows': self.flow_detector.detect_usage(obj_name),
+                    'email_templates': self.email_template_detector.detect_usage(obj_name)
+                }
+            
+            # Clear code cache after each batch to free memory
+            if i > 0 and i % batch_size == 0:
+                self._log_status(f"  🧹 Clearing code cache to free memory...")
+                self.code_detector.clear_code_cache()
+                
+                # Force garbage collection
+                import gc
+                gc.collect()
+                
+                self._log_status(f"  ✅ Memory optimized")
         
         # Code search is done separately after we know all field names
         # (optimization - load code once for all objects)

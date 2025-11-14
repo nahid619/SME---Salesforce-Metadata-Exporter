@@ -6,26 +6,21 @@ import time
 from typing import Optional, Callable, List
 from simple_salesforce import Salesforce
 from config.constants import MAX_RETRIES, RETRY_DELAY, REQUEST_TIMEOUT
+from config.logger import get_logger
+
+logger = get_logger('SalesforceClient')
 
 
 class SalesforceClient:
     """Manages Salesforce connection and API calls"""
     
     def __init__(self, username: str, password: str, security_token: str, 
-                 domain: str = 'login', status_callback: Optional[Callable] = None):
-        """
-        Initialize Salesforce connection
-        
-        Args:
-            username: Salesforce username
-            password: Salesforce password
-            security_token: Salesforce security token
-            domain: 'login' for production, 'test' for sandbox
-            status_callback: Optional callback for status messages
-        """
+                domain: str = 'login', status_callback: Optional[Callable] = None):
+        """Initialize Salesforce connection"""
         self.status_callback = status_callback
         self.api_call_count = 0
         
+        logger.info(f"Initializing Salesforce connection to {domain}.salesforce.com")
         self._log("Initializing Salesforce Connection...")
         
         try:
@@ -46,9 +41,12 @@ class SalesforceClient:
                 'Content-Type': 'application/json'
             }
             
+            logger.info(f"Successfully connected to {self.base_url}")
+            logger.info(f"Using API version: v{self.api_version}")
             self._log(f"✅ Connected to: {self.base_url}")
             
         except Exception as e:
+            logger.error(f"Salesforce connection failed: {str(e)}")
             self._log(f"❌ Connection failed: {str(e)}")
             raise
     

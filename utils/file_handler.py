@@ -124,41 +124,53 @@ class FileHandler:
         csv_file = None
         csv_writer = None
         
-        for row_data in rows:
-            # Create new CSV file every CSV_MAX_ROWS
-            if current_row == 0 or current_row >= CSV_MAX_ROWS:
-                if csv_file:
-                    csv_file.close()
+        try:
+            for row_data in rows:
+                # Create new CSV file every CSV_MAX_ROWS
+                if current_row == 0 or current_row >= CSV_MAX_ROWS:
+                    # Close previous file if exists
+                    if csv_file:
+                        csv_file.close()
+                        csv_file = None
+                    
+                    if file_num == 1:
+                        file_path = f"{base_path}.csv"
+                    else:
+                        file_path = f"{base_path}_Part{file_num}.csv"
+                        self._log(f"  Creating additional CSV file: Part {file_num}")
+                    
+                    files_created.append(file_path)
+                    csv_file = open(file_path, 'w', newline='', encoding='utf-8')
+                    csv_writer = csv.writer(csv_file)
+                    
+                    # Write header to new file
+                    csv_writer.writerow(rows[0])
+                    current_row = 1
+                    file_num += 1
+                    
+                    # Skip header row in data
+                    if row_data == rows[0]:
+                        continue
                 
-                if file_num == 1:
-                    file_path = f"{base_path}.csv"
-                else:
-                    file_path = f"{base_path}_Part{file_num}.csv"
-                    self._log(f"  Creating additional CSV file: Part {file_num}")
-                
-                files_created.append(file_path)
-                csv_file = open(file_path, 'w', newline='', encoding='utf-8')
-                csv_writer = csv.writer(csv_file)
-                
-                # Write header to new file
-                csv_writer.writerow(rows[0])
-                current_row = 1
-                file_num += 1
-                
-                # Skip header row in data
-                if row_data == rows[0]:
-                    continue
+                csv_writer.writerow(row_data)
+                current_row += 1
             
-            csv_writer.writerow(row_data)
-            current_row += 1
+            self._log(f"✅ CSV file(s) created: {len(files_created)} file(s)")
+            for f in files_created:
+                self._log(f"   - {f}")
+            self._log(f"✅ Total data rows: {len(rows) - 1}")
+            self._log("=" * 70)
+            
+            return files_created[0] if files_created else output_path
         
-        if csv_file:
-            csv_file.close()
+        except Exception as e:
+            self._log(f"❌ CSV creation error: {str(e)}")
+            raise
         
-        self._log(f"✅ CSV file(s) created: {len(files_created)} file(s)")
-        for f in files_created:
-            self._log(f"   - {f}")
-        self._log(f"✅ Total data rows: {len(rows) - 1}")
-        self._log("=" * 70)
-        
-        return files_created[0] if files_created else output_path
+        finally:
+            # SAFETY: Always close file handle even if exception occurs
+            if csv_file is not None:
+                try:
+                    csv_file.close()
+                except:
+                    pass  # Ignore close errors

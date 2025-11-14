@@ -23,6 +23,8 @@ from utils.helpers import format_runtime, get_timestamp, format_file_timestamp, 
 from exporters.picklist_exporter import PicklistExporter
 from exporters.dependency_analyzer import DependencyAnalyzer
 from exporters.metadata_exporter import MetadataExporter
+from exporters.soql_query_runner import SOQLQueryRunner
+from utils.health_check import check_before_export
 
 
 class MainScreen(ctk.CTkFrame):
@@ -479,15 +481,46 @@ class MainScreen(ctk.CTkFrame):
         )
     
     def _load_objects(self):
-        """Load all org objects"""
+        """Load all org objects in background thread"""
+        self._update_status("🔄 Loading objects from Salesforce...")
+        self._update_status_bar("Loading objects...", COLOR_WARNING)
+        
+        # Disable UI during load
+        self.available_listbox.delete(0, END)
+        self.available_listbox.insert(END, "Loading objects...")
+        
+        # Start background thread
+        loading_thread = threading.Thread(
+            target=self._load_objects_background,
+            daemon=True
+        )
+        loading_thread.start()
+
+    def _load_objects_background(self):
+        """Background thread for loading objects - DOESN'T BLOCK UI"""
         try:
-            self.all_org_objects = self.sf_client.fetch_all_objects()
-            self._populate_available_objects()
-            self._update_object_counts()
+            objects = self.sf_client.fetch_all_objects()
+            # Update UI on main thread
+            self.after(0, self._objects_loaded_success, objects)
         except Exception as e:
-            messagebox.showerror("Error Loading Objects", f"Failed to load objects:\n{str(e)}")
-            self._update_status(f"❌ Error loading objects: {str(e)}")
-    
+            self.after(0, self._objects_loaded_error, str(e))
+
+    def _objects_loaded_success(self, objects: List[str]):
+        """Called when objects are loaded successfully"""
+        self.all_org_objects = objects
+        self._populate_available_objects()
+        self._update_object_counts()
+        self._update_status(f"✅ Loaded {len(objects)} objects from org")
+        self._update_status_bar("Ready", COLOR_SUCCESS)
+
+    def _objects_loaded_error(self, error_message: str):
+        """Called when object loading fails"""
+        messagebox.showerror("Error Loading Objects", f"Failed to load objects:\n{error_message}")
+        self._update_status(f"❌ Error loading objects: {error_message}")
+        self._update_status_bar("Error loading objects", COLOR_DANGER)
+        self.available_listbox.delete(0, END)
+        self.available_listbox.insert(END, "Failed to load objects")
+        
     def _apply_filter(self, filter_type: str):
         """Apply object filter"""
         self.current_filter = filter_type
@@ -526,15 +559,51 @@ class MainScreen(ctk.CTkFrame):
         return filtered
     
     def _populate_available_objects(self):
-        """Populate available objects listbox"""
+        """Populate available objects listbox (with lazy loading for large orgs)"""
         self.available_listbox.delete(0, END)
         filtered_objects = self._get_filtered_objects()
         
-        for obj in filtered_objects:
+        # Performance: Only show first 200 objects initially
+        MAX_VISIBLE = 200
+        visible_count = min(MAX_VISIBLE, len(filtered_objects))
+        
+        # Store full list for later reference
+        self._full_filtered_list = filtered_objects
+        
+        for obj in filtered_objects[:visible_count]:
             self.available_listbox.insert(END, obj)
             if obj in self.selected_objects:
                 idx = self.available_listbox.size() - 1
                 self.available_listbox.itemconfig(idx, {'fg': '#87CEEB'})
+        
+        # Show message if there are more objects
+        if len(filtered_objects) > visible_count:
+            remaining = len(filtered_objects) - visible_count
+            self.available_listbox.insert(END, "")
+            self.available_listbox.insert(END, f"--- {remaining} more objects (use search to filter) ---")
+            # Make the message unselectable
+            idx = self.available_listbox.size() - 1
+            self.available_listbox.itemconfig(idx, {'fg': '#888888'})
+    
+    def _show_all_objects(self):
+        """Show all objects (called when user requests it)"""
+        if not hasattr(self, '_full_filtered_list'):
+            return
+        
+        confirm = messagebox.askyesno(
+            "Show All Objects",
+            f"This will display all {len(self._full_filtered_list)} objects.\n\n"
+            f"For large orgs, this may cause temporary slowdown.\n\n"
+            f"Consider using search instead. Continue?"
+        )
+        
+        if confirm:
+            self.available_listbox.delete(0, END)
+            for obj in self._full_filtered_list:
+                self.available_listbox.insert(END, obj)
+                if obj in self.selected_objects:
+                    idx = self.available_listbox.size() - 1
+                    self.available_listbox.itemconfig(idx, {'fg': '#87CEEB'})
     
     def _populate_selected_objects(self):
         """Populate selected objects listbox"""
@@ -652,11 +721,25 @@ class MainScreen(ctk.CTkFrame):
             self._update_object_counts()
     
     def _update_status(self, message: str, verbose: bool = False):
-        """Update terminal with status message"""
+        """Update terminal with status message (with size limiting)"""
         timestamp = get_timestamp()
         display_message = f"{timestamp} {message}"
         
         self.status_textbox.configure(state="normal")
+        
+        # Limit terminal to last 500 lines to prevent slowdown
+        try:
+            current_lines = int(self.status_textbox.index('end-1c').split('.')[0])
+            if current_lines > 500:
+                # Delete first 100 lines
+                self.status_textbox.delete('1.0', '101.0')
+                self._log_cleanup_message_shown = getattr(self, '_log_cleanup_message_shown', False)
+                if not self._log_cleanup_message_shown:
+                    self.status_textbox.insert("end", "\n[...older logs removed to maintain performance...]\n")
+                    self._log_cleanup_message_shown = True
+        except:
+            pass  # Ignore any errors in cleanup
+        
         self.status_textbox.insert("end", "\n" + display_message)
         self.status_textbox.see("end")
         
@@ -664,7 +747,16 @@ class MainScreen(ctk.CTkFrame):
             print(display_message)
         
         self.status_textbox.configure(state="disabled")
-        self.update_idletasks()
+        
+        # Throttle update_idletasks() to reduce UI lag
+        if not hasattr(self, '_last_status_update_time'):
+            self._last_status_update_time = 0
+        
+        import time
+        current_time = time.time()
+        if current_time - self._last_status_update_time > 0.1:  # Max 10 updates/second
+            self.update_idletasks()
+            self._last_status_update_time = current_time
     
     def _update_status_bar(self, message: str, color: str = COLOR_SUCCESS):
         """Update status bar with message and color"""
@@ -672,16 +764,27 @@ class MainScreen(ctk.CTkFrame):
         self.update_idletasks()
     
     def _update_progress(self, current: int, total: int):
-        """Update progress bar"""
+        """Update progress bar (throttled to reduce UI lag)"""
         if total > 0:
             progress = current / total
             percentage = int(progress * 100)
             
-            self.progress_bar.set(progress)
-            self.progress_label.configure(text=f"{percentage}% ({current}/{total})")
-            self._update_status_bar(f"Processing {current}/{total} - {percentage}% complete", COLOR_WARNING)
-        
-        self.update_idletasks()
+            # Initialize throttle tracking
+            if not hasattr(self, '_last_progress_percentage'):
+                self._last_progress_percentage = -1
+            
+            # Only update every 2% OR at completion to reduce UI calls
+            should_update = (
+                percentage != self._last_progress_percentage and 
+                (percentage % 2 == 0 or percentage >= 98 or percentage <= 2)
+            )
+            
+            if should_update:
+                self.progress_bar.set(progress)
+                self.progress_label.configure(text=f"{percentage}% ({current}/{total})")
+                self._update_status_bar(f"Processing {current}/{total} - {percentage}% complete", COLOR_WARNING)
+                self._last_progress_percentage = percentage
+                self.update_idletasks()
     
     def _disable_ui(self):
         """BUG FIX: Disable ALL export buttons and UI elements during export"""
@@ -721,6 +824,35 @@ class MainScreen(ctk.CTkFrame):
         self.filter_standard_btn.configure(state="normal")
         self.filter_custom_btn.configure(state="normal")
     
+    def _ensure_ui_enabled(self):
+        """SAFETY: Ensure UI is always re-enabled (call in finally blocks)"""
+        if self.export_in_progress:
+            self.export_in_progress = False
+            self._enable_ui()
+            
+            # Reset all export buttons to default state
+            self.picklist_export_btn.configure(
+                text="📋 Export Picklist Data",
+                command=self._export_picklist_action,
+                fg_color=BUTTON_EXPORT,
+                state="normal"
+            )
+            self.dependency_btn.configure(
+                text="🔗 Dependency Analysis",
+                command=self._export_dependency_action,
+                fg_color=BUTTON_EXPORT,
+                state="normal"
+            )
+            self.metadata_btn.configure(
+                text="📦 Metadata Exporter",
+                command=self._export_metadata_action,
+                fg_color=BUTTON_EXPORT,
+                state="normal"
+            )
+            
+            self.progress_bar.set(0)
+            self.progress_label.configure(text="0%")
+        
     
     # ==================== SOQL QUERY SCREEN NAVIGATION ====================
 
@@ -763,6 +895,9 @@ class MainScreen(ctk.CTkFrame):
                 "Warning",
                 "Please add objects to the 'Selected for Export' list."
             )
+            return
+        # HEALTH CHECK: Verify system can handle export
+        if not check_before_export(len(selected_objects_list), include_usage=False):
             return
         
         export_format = self.export_format_var.get()
@@ -839,6 +974,10 @@ class MainScreen(ctk.CTkFrame):
         
         except Exception as e:
             self.after(0, self._export_complete_error, str(e))
+        
+        finally:
+            # SAFETY: Always ensure UI is re-enabled even if exception occurs
+            self.after(0, self._ensure_ui_enabled)
     
     def _export_complete_success(self, output_path: str, stats: Dict, runtime_formatted: str):
         """Called when export completes successfully"""
@@ -940,6 +1079,9 @@ class MainScreen(ctk.CTkFrame):
                 "Dependency analysis requires at least 2 objects.\n\nPlease select more objects."
             )
             return
+        # HEALTH CHECK: Verify system can handle export
+        if not check_before_export(len(selected_objects_list), include_usage=False):
+            return
         
         export_format = self.export_format_var.get()
         extension = ".xlsx" if export_format == "excel" else ".csv"
@@ -1015,6 +1157,9 @@ class MainScreen(ctk.CTkFrame):
         
         except Exception as e:
             self.after(0, self._dependency_complete_error, str(e))
+        finally:
+            # SAFETY: Always ensure UI is re-enabled even if exception occurs
+            self.after(0, self._ensure_ui_enabled)
     
     def _dependency_complete_success(self, output_path: str, stats: Dict, runtime_formatted: str):
         """Called when dependency analysis completes successfully"""
@@ -1191,6 +1336,15 @@ class MainScreen(ctk.CTkFrame):
     def _start_metadata_export(self, selected_objects_list: List[str], 
                                custom_only: bool, include_usage: bool):
         """Start the metadata export process"""
+
+        # HEALTH CHECK: Verify system can handle export
+        if not check_before_export(len(selected_objects_list), include_usage):
+            return  # User cancelled due to resource concerns
+        
+        export_format = self.export_format_var.get()
+        extension = ".xlsx" if export_format == "excel" else ".csv"
+        default_filename = f'Metadata_Export_{format_file_timestamp()}{extension}'
+
         export_format = self.export_format_var.get()
         extension = ".xlsx" if export_format == "excel" else ".csv"
         default_filename = f'Metadata_Export_{format_file_timestamp()}{extension}'
@@ -1268,6 +1422,10 @@ class MainScreen(ctk.CTkFrame):
         
         except Exception as e:
             self.after(0, self._metadata_complete_error, str(e))
+        
+        finally:
+            # SAFETY: Always ensure UI is re-enabled even if exception occurs
+            self.after(0, self._ensure_ui_enabled)
     
     def _metadata_complete_success(self, output_path: str, stats: Dict, runtime_formatted: str):
         """Called when metadata export completes successfully"""

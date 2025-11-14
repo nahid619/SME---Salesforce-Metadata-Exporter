@@ -13,7 +13,10 @@ from config.constants import WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, APP_NAME
 from core.salesforce_client import SalesforceClient
 from ui.login_screen import LoginScreen
 from ui.main_screen import MainScreen
+from config.logger import get_logger, log_info, log_error, log_exception
 
+# Initialize logger
+logger = get_logger('Main')
 
 class SMEApplication(ctk.CTk):
     """Main application class for SME"""
@@ -138,17 +141,28 @@ class SMEApplication(ctk.CTk):
 def main():
     """Main entry point"""
     try:
+        log_info("Starting SME Application")
+        log_info(f"Python version: {sys.version}")
+        log_info(f"Platform: {sys.platform}")
+        
         # Set appearance to DARK MODE (default)
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
+        log_info("UI theme set to Dark mode")
         
         # Create and run application
         app = SMEApplication()
+        log_info("Application window created successfully")
+        
         app.mainloop()
         
     except Exception as e:
+        log_error(f"Application failed to start: {str(e)}")
+        log_exception(e, "main()")
         print(f"\n❌ Application Failed: {str(e)}")
         sys.exit(1)
+    finally:
+        log_info("SME Application terminated")
 
 
 if __name__ == "__main__":

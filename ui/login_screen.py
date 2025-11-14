@@ -128,12 +128,45 @@ class LoginScreen(ctk.CTkFrame):
             )
             return
         
-        # Disable button during connection
-        self.login_button.configure(state="disabled", text="Connecting...")
+        # Show immediate feedback
+        self.login_button.configure(
+            state="disabled", 
+            text="🔄 Connecting...",
+            fg_color="#6c757d",  # Gray
+            hover_color="#6c757d"
+        )
         
-        # Call success callback with credentials
+        # Disable all inputs
+        self.username_entry.configure(state="disabled")
+        self.password_entry.configure(state="disabled")
+        self.token_entry.configure(state="disabled")
+        
+        # Disable radio buttons
+        for child in self.master.winfo_children():
+            if isinstance(child, ctk.CTkRadioButton):
+                child.configure(state="disabled")
+        
+        # Force UI update
+        self.update_idletasks()
+        
+        # Call success callback
         self.on_login_success(username, password, token, domain)
-    
+
     def enable_login_button(self):
         """Re-enable login button after failed attempt"""
-        self.login_button.configure(state="normal", text="Connect to Salesforce")
+        self.login_button.configure(
+            state="normal", 
+            text="Connect to Salesforce",
+            fg_color="#28a745",
+            hover_color="#218838"
+        )
+        
+        # Re-enable all inputs
+        self.username_entry.configure(state="normal")
+        self.password_entry.configure(state="normal")
+        self.token_entry.configure(state="normal")
+        
+        # Re-enable radio buttons
+        for child in self.master.winfo_children():
+            if isinstance(child, ctk.CTkRadioButton):
+                child.configure(state="normal")
