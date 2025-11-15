@@ -1,14 +1,12 @@
 """
 SME - Salesforce Connection Client
+OPTIONAL VERSION: Includes option to show system objects
 """
 import requests
 import time
 from typing import Optional, Callable, List
 from simple_salesforce import Salesforce
 from config.constants import MAX_RETRIES, RETRY_DELAY, REQUEST_TIMEOUT
-from config.logger import get_logger
-
-logger = get_logger('SalesforceClient')
 
 
 class SalesforceClient:
@@ -20,7 +18,7 @@ class SalesforceClient:
         self.status_callback = status_callback
         self.api_call_count = 0
         
-        logger.info(f"Initializing Salesforce connection to {domain}.salesforce.com")
+        print(f"Initializing Salesforce connection to {domain}.salesforce.com")
         self._log("Initializing Salesforce Connection...")
         
         try:
@@ -41,12 +39,12 @@ class SalesforceClient:
                 'Content-Type': 'application/json'
             }
             
-            logger.info(f"Successfully connected to {self.base_url}")
-            logger.info(f"Using API version: v{self.api_version}")
+            print(f"✅ Successfully connected to {self.base_url}")
+            print(f"✅ Using API version: v{self.api_version}")
             self._log(f"✅ Connected to: {self.base_url}")
             
         except Exception as e:
-            logger.error(f"Salesforce connection failed: {str(e)}")
+            print(f"❌ Salesforce connection failed: {str(e)}")
             self._log(f"❌ Connection failed: {str(e)}")
             raise
     
@@ -56,12 +54,7 @@ class SalesforceClient:
             self.status_callback(message, verbose=verbose)
     
     def _detect_latest_api_version(self) -> str:
-        """
-        Auto-detect the org's latest supported API version
-        
-        Returns:
-            API version string (e.g., "60.0")
-        """
+        """Auto-detect the org's latest supported API version"""
         try:
             url = f"{self.base_url}/services/data/"
             response = requests.get(
@@ -91,9 +84,12 @@ class SalesforceClient:
         self._log(f"⚠️ Using minimum safe API version: v{fallback_version}")
         return fallback_version
     
-    def fetch_all_objects(self) -> List[str]:
+    def fetch_all_objects(self, include_system: bool = False) -> List[str]:
         """
         Fetch all queryable SObjects from the org
+        
+        Args:
+            include_system: If True, includes system/metadata objects (default: False)
         
         Returns:
             List of object API names
@@ -101,28 +97,57 @@ class SalesforceClient:
         self._log("Fetching all available SObjects from the organization...")
         try:
             response = self.sf.describe()
-            objects = sorted([
-                obj['name'] for obj in response['sobjects'] 
-                if obj.get('queryable', False) and not obj.get('deprecatedAndHidden', False)
-            ])
-            self._log(f"✅ Found {len(objects)} queryable objects.")
+            
+            if include_system:
+                # Include ALL queryable objects (including system objects)
+                objects = sorted([
+                    obj['name'] for obj in response['sobjects'] 
+                    if obj.get('queryable', False)
+                ])
+                self._log(f"✅ Found {len(objects)} queryable objects (including system objects).")
+            else:
+                # Standard behavior: Exclude system objects
+                objects = sorted([
+                    obj['name'] for obj in response['sobjects'] 
+                    if obj.get('queryable', False) and not obj.get('deprecatedAndHidden', False)
+                    and not self._is_system_object(obj['name'])
+                ])
+                self._log(f"✅ Found {len(objects)} business objects (system objects excluded).")
+            
             return objects
         except Exception as e:
             self._log(f"❌ Failed to fetch all SObjects: {str(e)}")
             return []
     
-    def make_api_call(self, url: str, params: dict = None, method: str = "GET") -> Optional[requests.Response]:
+    def _is_system_object(self, object_name: str) -> bool:
         """
-        Make API call with retry logic for rate limits
+        Determine if an object is a system/metadata object
         
-        Args:
-            url: API endpoint URL
-            params: Request parameters
-            method: HTTP method (GET or POST)
-            
-        Returns:
-            Response object or None if failed
+        System objects are typically not useful for business data exports
         """
+        # Common system object patterns
+        system_patterns = [
+            'Definition', 'History', 'Share', 'Feed', 'FieldHistory',
+            'UserRecordAccess', 'ChangeEvent', 'ViewStat', 'FlexQueue',
+            'DandBCompany', 'DatacloudCompany', 'DatacloudDunsNumber',
+            'NetworkActivityAudit', 'SetupAuditTrail', 'LoginHistory'
+        ]
+        
+        # Check if object name contains any system patterns
+        for pattern in system_patterns:
+            if pattern in object_name:
+                return True
+        
+        # Additional specific system objects
+        system_objects = {
+            'UserLicense', 'UserRole', 'ProfileSkill', 'LoginIp',
+            'NetworkMember', 'PermissionSet', 'PermissionSetAssignment'
+        }
+        
+        return object_name in system_objects
+    
+    def make_api_call(self, url: str, params: dict = None, method: str = "GET") -> Optional[requests.Response]:
+        """Make API call with retry logic for rate limits"""
         self.api_call_count += 1
         
         for attempt in range(MAX_RETRIES):
@@ -164,13 +189,5 @@ class SalesforceClient:
         return None
     
     def describe_object(self, object_name: str):
-        """
-        Describe an SObject
-        
-        Args:
-            object_name: API name of the object
-            
-        Returns:
-            Describe result
-        """
+        """Describe an SObject"""
         return getattr(self.sf, object_name).describe()

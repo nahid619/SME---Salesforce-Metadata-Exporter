@@ -1,5 +1,5 @@
 """
-SME - SOQL Query Runner Screen UI (UPDATED - Full Featured)
+SME - SOQL Query Runner Screen UI (FIXED - No Import Issues)
 """
 import customtkinter as ctk
 import tkinter as tk
@@ -7,11 +7,19 @@ from tkinter import ttk, messagebox, filedialog, Toplevel
 from typing import Callable, List, Dict
 import threading
 import re
-from config.constants import (
-    COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER
-)
+
+# Import constants
+from config.constants import COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER
+
+# Import utilities
 from utils.helpers import get_timestamp, format_file_timestamp
-from exporters.soql_query_runner import SOQLQueryRunner
+
+# ✅ FIX: Import with error handling
+try:
+    from exporters.soql_query_runner import SOQLQueryRunner
+except ImportError as e:
+    print(f"⚠️ Warning: Could not import SOQLQueryRunner: {e}")
+    SOQLQueryRunner = None
 
 
 class SOQLQueryScreen(ctk.CTkFrame):
@@ -33,6 +41,12 @@ class SOQLQueryScreen(ctk.CTkFrame):
         # State variables
         self.query_results: List[Dict] = []
         self.query_in_progress = False
+        
+        # ✅ Check if SOQLQueryRunner is available
+        if SOQLQueryRunner is None:
+            self._show_unavailable_error()
+            return
+        
         self.query_runner = SOQLQueryRunner(sf_client, status_callback=self._log_status)
         
         # Start with empty objects list - load in background
@@ -46,6 +60,29 @@ class SOQLQueryScreen(ctk.CTkFrame):
         
         # Setup UI
         self._setup_ui()
+        
+        # Load objects in background AFTER UI is ready
+        self._log_status(f"{get_timestamp()} 🔄 Loading objects in background...")
+        threading.Thread(target=self._load_org_objects_async, daemon=True).start()
+    
+    def _show_unavailable_error(self):
+        """Show error if SOQLQueryRunner couldn't be imported"""
+        error_label = ctk.CTkLabel(
+            self,
+            text="❌ SOQL Query Runner Unavailable\n\nSOQLQueryRunner module could not be loaded.\nPlease check exporters/soql_query_runner.py exists.",
+            font=ctk.CTkFont(size=14),
+            text_color="red"
+        )
+        error_label.pack(expand=True)
+        
+        back_btn = ctk.CTkButton(
+            self,
+            text="← Back",
+            command=self.on_back,
+            width=100,
+            height=35
+        )
+        back_btn.pack(pady=20)
     
     def _setup_ui(self):
         """Setup SOQL Query UI components"""
@@ -63,12 +100,6 @@ class SOQLQueryScreen(ctk.CTkFrame):
         
         # Progress Bar
         self._create_progress_bar()
-        # Setup UI
-        self._setup_ui()
-        
-        # Load objects in background AFTER UI is ready
-        self._log_status(f"{get_timestamp()} 🔄 Loading objects in background...")
-        threading.Thread(target=self._load_org_objects_async, daemon=True).start()
     
     def _create_header(self):
         """Create header with back button and title"""
@@ -111,8 +142,9 @@ class SOQLQueryScreen(ctk.CTkFrame):
     def _create_query_input(self):
         """Create query input section"""
         query_frame = ctk.CTkFrame(self)
-        query_frame.grid(row=1, column=0, pady=5, sticky="ew", padx=15)
+        query_frame.grid(row=1, column=0, pady=5, sticky="nsew", padx=15)
         query_frame.grid_columnconfigure(0, weight=1)
+        query_frame.grid_rowconfigure(1, weight=1)
         
         # Top row: Label and buttons
         top_row = ctk.CTkFrame(query_frame, fg_color="transparent")
@@ -132,7 +164,7 @@ class SOQLQueryScreen(ctk.CTkFrame):
             font=("Consolas", 12),
             wrap="word"
         )
-        self.query_textbox.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.query_textbox.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         
         # Action buttons row
         buttons_frame = ctk.CTkFrame(query_frame, fg_color="transparent")
@@ -187,7 +219,7 @@ class SOQLQueryScreen(ctk.CTkFrame):
         top_row.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
         top_row.grid_columnconfigure(0, weight=1)
         
-        # Results label (NO API COUNT)
+        # Results label
         self.results_label = ctk.CTkLabel(
             top_row,
             text="Query Results (0 records)",
@@ -287,12 +319,9 @@ class SOQLQueryScreen(ctk.CTkFrame):
         self.progress_bar.set(0)
     
     def _load_org_objects_async(self):
-        """
-        Load all queryable objects from Salesforce org in background thread
-        """
+        """Load all queryable objects from Salesforce org in background thread"""
         try:
             objects = self.sf_client.fetch_all_objects()
-            # Update UI on main thread
             self.after(0, self._objects_loaded_success, objects)
         except Exception as e:
             self.after(0, self._objects_loaded_error, str(e))
@@ -302,8 +331,8 @@ class SOQLQueryScreen(ctk.CTkFrame):
         self.all_objects = objects
         self.objects_loading = False
         self._log_status(f"{get_timestamp()} ✅ Loaded {len(objects)} objects")
-        # Enable show objects button if it was disabled
-        self.show_objects_btn.configure(state="normal")
+        if hasattr(self, 'show_objects_btn'):
+            self.show_objects_btn.configure(state="normal")
 
     def _objects_loaded_error(self, error_message: str):
         """Called when object loading fails"""
@@ -359,15 +388,7 @@ class SOQLQueryScreen(ctk.CTkFrame):
             messagebox.showerror("Format Error", f"Failed to format query:\n\n{str(e)}")
     
     def _format_soql(self, query: str) -> str:
-        """
-        Format SOQL query for better readability
-        
-        Args:
-            query: Raw SOQL query
-            
-        Returns:
-            Formatted SOQL query
-        """
+        """Format SOQL query for better readability"""
         # Remove extra whitespace
         query = ' '.join(query.split())
         
@@ -375,29 +396,16 @@ class SOQLQueryScreen(ctk.CTkFrame):
         keywords = ['SELECT', 'FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'LIMIT', 'OFFSET']
         
         for keyword in keywords:
-            # Case-insensitive replacement
             pattern = re.compile(r'\b' + keyword + r'\b', re.IGNORECASE)
             query = pattern.sub(f'\n{keyword}', query)
         
-        # Clean up: remove leading newline if present
+        # Clean up
         query = query.strip()
         
-        # Add proper indentation
-        lines = query.split('\n')
-        formatted_lines = []
-        
-        for line in lines:
-            line = line.strip()
-            if line.startswith(('FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'LIMIT', 'OFFSET')):
-                formatted_lines.append(line)
-            else:
-                formatted_lines.append(line)
-        
-        return '\n'.join(formatted_lines)
+        return query
     
     def _show_objects_popup(self):
         """Show popup with all objects and search"""
-        # Check if objects are still loading
         if self.objects_loading or not self.all_objects:
             messagebox.showinfo(
                 "Loading Objects",
@@ -414,8 +422,8 @@ class SOQLQueryScreen(ctk.CTkFrame):
         
         # Center popup
         popup.update_idletasks()
-        x = (popup.winfo_screenwidth() // 2) - (500 // 2)
-        y = (popup.winfo_screenheight() // 2) - (600 // 2)
+        x = (popup.winfo_screenwidth() // 2) - 250
+        y = (popup.winfo_screenheight() // 2) - 300
         popup.geometry(f"+{x}+{y}")
         
         # Create frame
@@ -481,8 +489,7 @@ class SOQLQueryScreen(ctk.CTkFrame):
             selection = objects_listbox.curselection()
             if selection:
                 selected_object = objects_listbox.get(selection[0])
-                # Insert query for selected object
-                query = f"SELECT Id FROM {selected_object} LIMIT 10"
+                query = f"SELECT Id, Name FROM {selected_object} LIMIT 10"
                 self.query_textbox.delete("1.0", "end")
                 self.query_textbox.insert("1.0", query)
                 self._log_status(f"{get_timestamp()} Inserted query for {selected_object}")
@@ -490,7 +497,6 @@ class SOQLQueryScreen(ctk.CTkFrame):
             else:
                 messagebox.showwarning("No Selection", "Please select an object.")
         
-        # Double-click to select
         objects_listbox.bind('<Double-Button-1>', lambda e: on_select())
         
         # Buttons
@@ -523,26 +529,22 @@ class SOQLQueryScreen(ctk.CTkFrame):
             messagebox.showwarning("Query Running", "A query is already in progress.")
             return
         
-        # Get query text
         query = self.query_textbox.get("1.0", "end-1c").strip()
         
         if not query:
             messagebox.showwarning("No Query", "Please enter a SOQL query.")
             return
         
-        # Basic validation
         if not query.upper().startswith("SELECT"):
             messagebox.showerror("Invalid Query", "Query must start with SELECT.")
             return
         
-        # Disable buttons
         self.query_in_progress = True
         self._disable_ui()
         self.run_query_btn.configure(text="⏸ Running...", state="disabled")
         self._update_status_bar("Executing query...", COLOR_WARNING)
         self.progress_bar.set(0.5)
         
-        # Run query in thread
         query_thread = threading.Thread(
             target=self._execute_query,
             args=(query,),
@@ -556,10 +558,7 @@ class SOQLQueryScreen(ctk.CTkFrame):
             self._log_status(f"{get_timestamp()} Executing SOQL query...")
             self._log_status(f"Query: {query}")
             
-            # Call the query runner's execute_query method
             results = self.query_runner.execute_query(query)
-            
-            # Update UI on main thread
             self.after(0, self._query_complete_success, results)
         
         except Exception as e:
@@ -567,67 +566,67 @@ class SOQLQueryScreen(ctk.CTkFrame):
     
     def _query_complete_success(self, results: List[Dict]):
         """Called when query completes successfully"""
-        self.query_results = results
-        row_count = len(results)
-        
-        self._log_status(f"{get_timestamp()} ✅ Query successful - {row_count} records returned")
-        self._update_status_bar(f"Query successful - {row_count} records returned", COLOR_SUCCESS)
-        self.progress_bar.set(1.0)
-        
-        # Display results in table
-        self._display_results(results)
-        
-        # Enable export button
-        self.export_excel_btn.configure(state="normal")
-        
-        self.query_in_progress = False
-        self._enable_ui()
-        self.run_query_btn.configure(text="▶ Execute Query", state="normal")
+        try:
+            self.query_results = results
+            row_count = len(results)
+            
+            self._log_status(f"{get_timestamp()} ✅ Query successful - {row_count} records returned")
+            self._update_status_bar(f"Query successful - {row_count} records returned", COLOR_SUCCESS)
+            self.progress_bar.set(1.0)
+            
+            self._display_results(results)
+            
+            self.export_excel_btn.configure(state="normal")
+            self.export_csv_btn.configure(state="normal")
+            
+            self.query_in_progress = False
+            self._enable_ui()
+            self.run_query_btn.configure(text="▶ Execute Query", state="normal")
+        except Exception as e:
+            print(f"Query success handler error: {e}")
+            self._ensure_ui_enabled()
     
     def _query_complete_error(self, error_message: str):
         """Called when query fails"""
-        self._log_status(f"{get_timestamp()} ❌ Query error: {error_message}")
-        self._update_status_bar(f"Query error: {error_message}", COLOR_DANGER)
-        self.progress_bar.set(0)
-        
-        self.query_in_progress = False
-        self._enable_ui()
-        self.run_query_btn.configure(text="▶ Execute Query", state="normal")
-        
-        messagebox.showerror(
-            "Query Error",
-            f"Query execution failed:\n\n{error_message}"
-        )
+        try:
+            self._log_status(f"{get_timestamp()} ❌ Query error: {error_message}")
+            self._update_status_bar(f"Query error", COLOR_DANGER)
+            self.progress_bar.set(0)
+            
+            self.query_in_progress = False
+            self._enable_ui()
+            self.run_query_btn.configure(text="▶ Execute Query", state="normal")
+            
+            messagebox.showerror(
+                "Query Error",
+                f"Query execution failed:\n\n{error_message}"
+            )
+        except Exception as e:
+            print(f"Query error handler error: {e}")
+            self._ensure_ui_enabled()
     
     def _display_results(self, results: List[Dict]):
         """Display query results in treeview"""
-        # Clear existing data
         self.results_tree.delete(*self.results_tree.get_children())
         
         if not results:
             self.results_label.configure(text="Query Results (0 records)")
             return
         
-        # Get column names from first record
         columns = list(results[0].keys())
         
-        # Configure columns
         self.results_tree["columns"] = columns
         self.results_tree["show"] = "headings"
         
-        # Setup column headings and widths
         for col in columns:
             self.results_tree.heading(col, text=col)
             self.results_tree.column(col, width=150, minwidth=100, anchor="w")
         
-        # Insert data rows
         for record in results:
             values = [str(record.get(col, '')) for col in columns]
             self.results_tree.insert("", "end", values=values)
         
-        # Update label (NO API COUNT)
         self.results_label.configure(text=f"Query Results ({len(results)} records)")
-        
         self._log_status(f"{get_timestamp()} Displayed {len(results)} rows in table")
     
     def _export_excel_action(self):
@@ -636,7 +635,6 @@ class SOQLQueryScreen(ctk.CTkFrame):
             messagebox.showwarning("No Data", "No query results to export.")
             return
         
-        # Ask for save location
         default_filename = f'SOQL_Export_{format_file_timestamp()}.xlsx'
         output_file_path = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
@@ -649,8 +647,6 @@ class SOQLQueryScreen(ctk.CTkFrame):
         
         try:
             self._update_status_bar("Exporting to Excel...", COLOR_WARNING)
-            
-            # Export to Excel
             self.query_runner.export_to_excel(self.query_results, output_file_path)
             
             self._log_status(f"{get_timestamp()} ✅ Exported {len(self.query_results)} records to Excel")
@@ -664,7 +660,7 @@ class SOQLQueryScreen(ctk.CTkFrame):
         
         except Exception as e:
             self._log_status(f"{get_timestamp()} ❌ Export error: {str(e)}")
-            self._update_status_bar(f"Export failed: {str(e)}", COLOR_DANGER)
+            self._update_status_bar(f"Export failed", COLOR_DANGER)
             messagebox.showerror("Export Error", f"Failed to export Excel:\n\n{str(e)}")
     
     def _export_csv_action(self):
@@ -673,7 +669,6 @@ class SOQLQueryScreen(ctk.CTkFrame):
             messagebox.showwarning("No Data", "No query results to export.")
             return
         
-        # Ask for save location
         default_filename = f'SOQL_Export_{format_file_timestamp()}.csv'
         output_file_path = filedialog.asksaveasfilename(
             defaultextension=".csv",
@@ -686,7 +681,6 @@ class SOQLQueryScreen(ctk.CTkFrame):
         
         try:
             self._update_status_bar("Exporting to CSV...", COLOR_WARNING)
-            
             self.query_runner.export_to_csv(self.query_results, output_file_path)
             
             self._log_status(f"{get_timestamp()} ✅ Exported {len(self.query_results)} records to CSV")
@@ -700,41 +694,57 @@ class SOQLQueryScreen(ctk.CTkFrame):
         
         except Exception as e:
             self._log_status(f"{get_timestamp()} ❌ Export error: {str(e)}")
-            self._update_status_bar(f"Export failed: {str(e)}", COLOR_DANGER)
+            self._update_status_bar(f"Export failed", COLOR_DANGER)
             messagebox.showerror("Export Error", f"Failed to export CSV:\n\n{str(e)}")
-
-
     
     def _disable_ui(self):
         """Disable UI during query execution"""
-        self.back_button.configure(state="disabled")
-        self.export_excel_btn.configure(state="disabled")
-        self.clear_btn.configure(state="disabled")
-        self.format_btn.configure(state="disabled")
-        self.show_objects_btn.configure(state="disabled")
-        self.query_textbox.configure(state="disabled")
-        self.export_csv_btn.configure(state="disabled")
+        try:
+            self.back_button.configure(state="disabled")
+            self.export_excel_btn.configure(state="disabled")
+            self.export_csv_btn.configure(state="disabled")
+            self.clear_btn.configure(state="disabled")
+            self.format_btn.configure(state="disabled")
+            self.show_objects_btn.configure(state="disabled")
+            self.query_textbox.configure(state="disabled")
+        except Exception as e:
+            print(f"Disable UI error: {e}")
     
     def _enable_ui(self):
         """Re-enable UI after query execution"""
-        self.back_button.configure(state="normal")
-        self.clear_btn.configure(state="normal")
-        self.format_btn.configure(state="normal")
-        self.show_objects_btn.configure(state="normal")
-        self.query_textbox.configure(state="normal")
-        
-        # Only enable export buttons if we have results
-        if self.query_results and len(self.query_results) > 0:
-            self.export_excel_btn.configure(state="normal")
-            self.export_csv_btn.configure(state="normal")
-        else:
-            self.export_excel_btn.configure(state="disabled")
-            self.export_csv_btn.configure(state="disabled")
+        try:
+            self.back_button.configure(state="normal")
+            self.clear_btn.configure(state="normal")
+            self.format_btn.configure(state="normal")
+            self.show_objects_btn.configure(state="normal")
+            self.query_textbox.configure(state="normal")
+            
+            if self.query_results and len(self.query_results) > 0:
+                self.export_excel_btn.configure(state="normal")
+                self.export_csv_btn.configure(state="normal")
+            else:
+                self.export_excel_btn.configure(state="disabled")
+                self.export_csv_btn.configure(state="disabled")
+        except Exception as e:
+            print(f"Enable UI error: {e}")
+    
+    def _ensure_ui_enabled(self):
+        """✅ SAFETY: Ensure UI is always re-enabled"""
+        try:
+            self.query_in_progress = False
+            self._enable_ui()
+            self.run_query_btn.configure(text="▶ Execute Query", state="normal")
+            self.progress_bar.set(0)
+            print("🚨 SOQL UI emergency recovery executed")
+        except Exception as e:
+            print(f"❌ SOQL UI recovery error: {e}")
     
     def _update_status_bar(self, message: str, color: str = COLOR_SUCCESS):
         """Update status bar with message and color"""
-        self.status_bar.configure(text=message, fg_color=color)
-        self.update_idletasks()
+        try:
+            self.status_bar.configure(text=message, fg_color=color)
+        except Exception as e:
+            print(f"Status bar update error: {e}")
     
     def _log_status(self, message: str):
         """Log status message"""

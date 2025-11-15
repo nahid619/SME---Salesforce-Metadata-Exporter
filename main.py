@@ -1,10 +1,8 @@
 """
 SME (Salesforce Metadata Exporter)
-Main Application Entry Point
+Main Application Entry Point - SIMPLIFIED (No Logger/Settings Issues)
 
 Author: Nahid Hasan
-
-UPDATED: Dark mode set as default
 """
 import sys
 import customtkinter as ctk
@@ -13,10 +11,7 @@ from config.constants import WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, APP_NAME
 from core.salesforce_client import SalesforceClient
 from ui.login_screen import LoginScreen
 from ui.main_screen import MainScreen
-from config.logger import get_logger, log_info, log_error, log_exception
 
-# Initialize logger
-logger = get_logger('Main')
 
 class SMEApplication(ctk.CTk):
     """Main application class for SME"""
@@ -95,6 +90,8 @@ class SMEApplication(ctk.CTk):
             domain: Org type (login/test)
         """
         try:
+            print(f"Connecting to Salesforce as {username}...")
+            
             # Create Salesforce client
             self.sf_client = SalesforceClient(
                 username=username,
@@ -118,7 +115,9 @@ class SMEApplication(ctk.CTk):
             self.main_screen.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
             
         except Exception as e:
-            messagebox.showerror("Login Failed", f"Connection Error: {str(e)}")
+            error_msg = str(e)
+            print(f"❌ Connection Error: {error_msg}")
+            messagebox.showerror("Login Failed", f"Connection Error: {error_msg}")
             self.sf_client = None
             self.login_screen.enable_login_button()
     
@@ -141,28 +140,30 @@ class SMEApplication(ctk.CTk):
 def main():
     """Main entry point"""
     try:
-        log_info("Starting SME Application")
-        log_info(f"Python version: {sys.version}")
-        log_info(f"Platform: {sys.platform}")
+        print("=" * 70)
+        print(f"Starting {APP_NAME} Application")
+        print(f"Python version: {sys.version}")
+        print("=" * 70)
         
         # Set appearance to DARK MODE (default)
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
-        log_info("UI theme set to Dark mode")
+        print("✅ UI theme set to Dark mode")
         
         # Create and run application
         app = SMEApplication()
-        log_info("Application window created successfully")
+        print("✅ Application window created successfully")
+        print("=" * 70)
         
         app.mainloop()
         
     except Exception as e:
-        log_error(f"Application failed to start: {str(e)}")
-        log_exception(e, "main()")
         print(f"\n❌ Application Failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
     finally:
-        log_info("SME Application terminated")
+        print("\nSME Application terminated")
 
 
 if __name__ == "__main__":
