@@ -381,7 +381,7 @@ class MainScreen(ctk.CTkFrame):
             text="📋 Export Picklist Data",
             command=self._export_picklist_action,
             height=42,
-            fg_color=BUTTON_EXPORT,
+            fg_color="#FFA200",
             hover_color=BUTTON_EXPORT_HOVER,
             font=ctk.CTkFont(size=13, weight="bold")
         )
@@ -392,7 +392,7 @@ class MainScreen(ctk.CTkFrame):
             text="🔗 Dependency Analysis",
             command=self._export_dependency_action,
             height=42,
-            fg_color=BUTTON_EXPORT,
+            fg_color="#3564FF",
             hover_color=BUTTON_EXPORT_HOVER,
             font=ctk.CTkFont(size=13, weight="bold")
         )
@@ -403,7 +403,7 @@ class MainScreen(ctk.CTkFrame):
             text="📦 Metadata Exporter",
             command=self._export_metadata_action,
             height=42,
-            fg_color=BUTTON_EXPORT,
+            fg_color="#BF35FF",
             hover_color=BUTTON_EXPORT_HOVER,
             font=ctk.CTkFont(size=13, weight="bold")
         )
@@ -414,7 +414,7 @@ class MainScreen(ctk.CTkFrame):
             text="⚡ SOQL Query Runner",
             command=self._open_soql_query_screen,
             height=42,
-            fg_color=BUTTON_EXPORT if SOQL_AVAILABLE else "gray",
+            fg_color="#00C5AE" if SOQL_AVAILABLE else "gray",
             hover_color=BUTTON_EXPORT_HOVER if SOQL_AVAILABLE else "gray",
             font=ctk.CTkFont(size=13, weight="bold"),
             state="normal" if SOQL_AVAILABLE else "disabled"
@@ -427,8 +427,8 @@ class MainScreen(ctk.CTkFrame):
             text="🔄 Salesforce Switch",
             command=self._open_salesforce_switch,
             height=42,
-            fg_color="#FF6B35",  # Orange color
-            hover_color="#e55a2b",
+            fg_color="#FF6B35",
+            hover_color=BUTTON_EXPORT_HOVER,
             font=ctk.CTkFont(size=13, weight="bold")
         )
         self.sf_switch_btn.grid(row=0, column=4, padx=4, sticky="ew")  # column=4 for 5th button
