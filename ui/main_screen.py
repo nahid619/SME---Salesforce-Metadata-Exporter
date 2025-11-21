@@ -31,6 +31,8 @@ from utils.helpers import format_runtime, get_timestamp, format_file_timestamp, 
 from exporters.picklist_exporter import PicklistExporter
 from exporters.dependency_analyzer import DependencyAnalyzer
 from exporters.metadata_exporter import MetadataExporter
+from exporters.metadata_switch_manager import MetadataSwitchManager
+from ui.salesforce_switch_frame import SalesforceSwitchFrame
 
 # ✅ CRITICAL FIX: Import SOQLQueryScreen
 # This was missing and caused NameError when clicking SOQL Query Runner button
@@ -68,6 +70,7 @@ class MainScreen(ctk.CTkFrame):
         self.dependency_analyzer = None
         self.metadata_exporter = None
         self.soql_screen = None
+        self.sf_switch_screen = None
         
         # CRITICAL: Lazy loading flags
         self.objects_loaded = False
@@ -371,7 +374,7 @@ class MainScreen(ctk.CTkFrame):
         """Create feature buttons row"""
         buttons_frame = ctk.CTkFrame(self)
         buttons_frame.grid(row=3, column=0, pady=5, sticky="ew", padx=15)
-        buttons_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        buttons_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
         
         self.picklist_export_btn = ctk.CTkButton(
             buttons_frame,
@@ -417,7 +420,19 @@ class MainScreen(ctk.CTkFrame):
             state="normal" if SOQL_AVAILABLE else "disabled"
         )
         self.soql_btn.grid(row=0, column=3, padx=4, sticky="ew")
-        
+
+        #NEW: Add this 5th button at the end
+        self.sf_switch_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🔄 Salesforce Switch",
+            command=self._open_salesforce_switch,
+            height=42,
+            fg_color="#FF6B35",  # Orange color
+            hover_color="#e55a2b",
+            font=ctk.CTkFont(size=13, weight="bold")
+        )
+        self.sf_switch_btn.grid(row=0, column=4, padx=4, sticky="ew")  # column=4 for 5th button
+
         # Add tooltip if disabled
         if not SOQL_AVAILABLE:
             # Create a simple label to show when hovering (optional)
@@ -945,6 +960,73 @@ class MainScreen(ctk.CTkFrame):
             self.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
         except Exception as e:
             print(f"Close SOQL screen error: {e}")
+    
+    def _open_salesforce_switch(self):
+        """Open Salesforce Switch screen"""
+        if not self.sf_client:
+            messagebox.showerror("Error", "Not logged in to Salesforce.")
+            return
+        
+        try:
+            # Get org instance name (not ID)
+            org_name = self.sf_client.base_url.replace('https://', '').replace('http://', '')
+            
+            # Hide main screen
+            self.grid_forget()
+            
+            # Create Salesforce Switch screen if not exists
+            if self.sf_switch_screen is None:
+                # Create switch manager
+                switch_manager = MetadataSwitchManager(
+                    sf=self.sf_client.sf,
+                    status_callback=self._update_status
+                )
+                
+                # Create UI screen with back callback
+                self.sf_switch_screen = SalesforceSwitchFrame(
+                    self.master,
+                    switch_manager=switch_manager,
+                    username=org_name,
+                    status_callback=self._update_status,
+                    on_back_callback=self._close_salesforce_switch  # Pass callback here
+                )
+            
+            # Show switch screen
+            self.sf_switch_screen.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+            
+            # Load components in background
+            self.sf_switch_screen.load_components()
+            
+            self._update_status("Opened Salesforce Switch")
+            
+        except Exception as e:
+            self._update_status(f"Error opening Salesforce Switch: {str(e)}")
+            messagebox.showerror(
+                "Error",
+                f"Failed to open Salesforce Switch:\n\n{str(e)}"
+            )
+            # Make sure to show main screen again on error
+            self.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+
+    def _close_salesforce_switch(self):
+        """Close Salesforce Switch screen and return to main screen"""
+        if self.sf_switch_screen:
+            self.sf_switch_screen.grid_forget()
+        
+        # Show main screen again
+        self.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+        
+        self._update_status("Returned to main screen")
+
+    def _close_salesforce_switch(self):
+        """Close Salesforce Switch screen"""
+        if self.sf_switch_screen:
+            self.sf_switch_screen.grid_forget()
+        
+        # Show main screen again
+        self.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+        
+        self._update_status("Returned to main screen")
 
     # ==================== EXPORT HANDLERS ====================
 
