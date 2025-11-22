@@ -1,6 +1,6 @@
 """
 SME - Salesforce Connection Client
-OPTIONAL VERSION: Includes option to show system objects
+Updated with Custom Domain Support
 """
 import requests
 import time
@@ -14,21 +14,59 @@ class SalesforceClient:
     
     def __init__(self, username: str, password: str, security_token: str, 
                 domain: str = 'login', status_callback: Optional[Callable] = None):
-        """Initialize Salesforce connection"""
+        """
+        Initialize Salesforce connection
+        
+        Args:
+            username: Salesforce username
+            password: Salesforce password
+            security_token: Salesforce security token
+            domain: Either 'login', 'test', or custom domain (e.g., 'mycompany.my.salesforce.com')
+            status_callback: Optional callback for status updates
+        """
         self.status_callback = status_callback
         self.api_call_count = 0
         
-        print(f"Initializing Salesforce connection to {domain}.salesforce.com")
-        self._log("Initializing Salesforce Connection...")
+        # Determine if it's a custom domain
+        is_custom_domain = domain not in ['login', 'test']
+        
+        if is_custom_domain:
+            print(f"Initializing Salesforce connection to custom domain: {domain}")
+            self._log(f"Connecting to custom domain: {domain}")
+        else:
+            print(f"Initializing Salesforce connection to {domain}.salesforce.com")
+            self._log("Initializing Salesforce Connection...")
         
         try:
-            self.sf = Salesforce(
-                username=username,
-                password=password,
-                security_token=security_token,
-                domain=domain
-            )
-            self.base_url = f"https://{self.sf.sf_instance}"
+            if is_custom_domain:
+                # Custom domain - use instance_url parameter
+                # Clean the domain (remove https:// if present)
+                clean_domain = domain.replace("https://", "").replace("http://", "").rstrip("/")
+                instance_url = f"https://{clean_domain}"
+                
+                self.sf = Salesforce(
+                    username=username,
+                    password=password,
+                    security_token=security_token,
+                    instance_url=instance_url
+                )
+                
+                self.base_url = instance_url
+                print(f"✅ Successfully connected to custom domain: {instance_url}")
+                self._log(f"✅ Connected to: {instance_url}")
+            else:
+                # Standard domain (login or test)
+                self.sf = Salesforce(
+                    username=username,
+                    password=password,
+                    security_token=security_token,
+                    domain=domain
+                )
+                
+                self.base_url = f"https://{self.sf.sf_instance}"
+                print(f"✅ Successfully connected to {self.base_url}")
+                self._log(f"✅ Connected to: {self.base_url}")
+            
             self.session_id = self.sf.session_id
             
             # Auto-detect API version
@@ -39,13 +77,19 @@ class SalesforceClient:
                 'Content-Type': 'application/json'
             }
             
-            print(f"✅ Successfully connected to {self.base_url}")
             print(f"✅ Using API version: v{self.api_version}")
-            self._log(f"✅ Connected to: {self.base_url}")
             
         except Exception as e:
-            print(f"❌ Salesforce connection failed: {str(e)}")
-            self._log(f"❌ Connection failed: {str(e)}")
+            error_msg = str(e)
+            print(f"❌ Salesforce connection failed: {error_msg}")
+            self._log(f"❌ Connection failed: {error_msg}")
+            
+            # Provide helpful error message for custom domains
+            if is_custom_domain and ("Invalid domain" in error_msg or "Failed to connect" in error_msg):
+                print(f"💡 Tip: Verify your custom domain is correct")
+                print(f"   Examples: mycompany.my.salesforce.com")
+                print(f"             mycompany--sandbox.sandbox.my.salesforce.com")
+            
             raise
     
     def _log(self, message: str, verbose: bool = False):
