@@ -473,7 +473,7 @@ class MainScreen(ctk.CTkFrame):
         self.status_textbox = ctk.CTkTextbox(
             self,
             height=140,
-            font=("Consolas", 11),
+            font=("Consolas", 12),
             wrap="word"
         )
         self.status_textbox.grid(row=6, column=0, padx=15, pady=(5, 10), sticky="nsew")
